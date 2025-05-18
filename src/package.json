@@ -1,0 +1,12 @@
+{
+  "name": "deck-builder",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "http-server -c-1",
+    "test": "node tests/run-tests.js"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
