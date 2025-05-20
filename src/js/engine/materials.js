@@ -1,144 +1,130 @@
-// Material takeoff generation
+// Materials calculation functions
 
-function generateMaterialTakeoff(frame, species) {
-  const takeoff = [];
-  const speciesMultiplier = materials.speciesMultipliers[species];
+function generateMaterialTakeoff(frame, speciesGrade, footingType = 'helical') {
+  const items = [];
+  const boardFeet = {};
+  let totalBoardFeet = 0;
   
-  // Joists
-  const joistLength = findStandardLength(frame.joists.span_ft + frame.joists.cantilever_ft, frame.joists.size);
-  takeoff.push({
-    item: `${frame.joists.size}-${joistLength}' joist`,
-    qty: frame.joists.count,
-    unitCost: materials.lumber[frame.joists.size].costPerFoot * joistLength * speciesMultiplier,
-    totalCost: materials.lumber[frame.joists.size].costPerFoot * joistLength * speciesMultiplier * frame.joists.count
+  // Calculate joist materials - use ACTUAL joist length (including cantilever)
+  const joistLength = frame.joists.total_length_ft || (frame.joists.span_ft + frame.joists.cantilever_ft);
+  const joistStockLength = materials.getStockLength(joistLength, frame.joists.size);
+  const joistCount = frame.joists.count;
+  
+  // Add joists to takeoff
+  items.push({
+    item: `${frame.joists.size}-${joistStockLength}' joist`,
+    qty: joistCount
   });
   
-  // Joist hangers
-  const joistSize = frame.joists.size.replace('2', ''); // Convert "2x8" to "x8"
-  const hangerType = `LUS2${joistSize}`; // Create "LUS2x8" format
-  if (materials.hardware[hangerType] || materials.hardware[`LUS${frame.joists.size}`]) {
-    const actualHangerType = materials.hardware[hangerType] ? hangerType : `LUS${frame.joists.size}`;
-    takeoff.push({
-      item: `${actualHangerType} hanger`,
-      qty: frame.joists.count,
-      unitCost: materials.hardware[actualHangerType].cost,
-      totalCost: materials.hardware[actualHangerType].cost * frame.joists.count
+  // Track board feet
+  const joistBF = materials.calculateBoardFeet(frame.joists.size, joistStockLength) * joistCount;
+  boardFeet[frame.joists.size] = (boardFeet[frame.joists.size] || 0) + joistBF;
+  totalBoardFeet += joistBF;
+  
+  // Calculate beam materials
+  frame.beams.forEach(beam => {
+    if (beam.style === 'ledger') {
+      // Add ledger board (2x10 typically)
+      const ledgerLength = materials.getStockLength(beam.span_ft || frame.length_ft, '2x10');
+      items.push({
+        item: `2x10-${ledgerLength}' ledger`,
+        qty: 1
+      });
+      
+      const ledgerBF = materials.calculateBoardFeet('2x10', ledgerLength);
+      boardFeet['2x10'] = (boardFeet['2x10'] || 0) + ledgerBF;
+      totalBoardFeet += ledgerBF;
+    } else {
+      // Regular beam - account for plies
+      const beamLength = materials.getStockLength(beam.span_ft, beam.dimension);
+      const totalBeamQty = beam.plyCount;
+      
+      items.push({
+        item: `${beam.dimension}-${beamLength}' beam`,
+        qty: totalBeamQty
+      });
+      
+      const beamBF = materials.calculateBoardFeet(beam.dimension, beamLength) * totalBeamQty;
+      boardFeet[beam.dimension] = (boardFeet[beam.dimension] || 0) + beamBF;
+      totalBoardFeet += beamBF;
+    }
+  });
+  
+  // Calculate post materials
+  const uniquePostHeights = new Map();
+  frame.posts.forEach(post => {
+    const height = post.height_ft;
+    uniquePostHeights.set(height, (uniquePostHeights.get(height) || 0) + 1);
+  });
+  
+  uniquePostHeights.forEach((count, height) => {
+    items.push({
+      item: `6x6-${height}' post`,
+      qty: count
     });
-  } else {
-    console.warn(`Hanger type not found: ${hangerType} for joist size: ${frame.joists.size}`);
+    
+    const postBF = materials.calculateBoardFeet('6x6', height) * count;
+    boardFeet['6x6'] = (boardFeet['6x6'] || 0) + postBF;
+    totalBoardFeet += postBF;
+  });
+  
+  // Add hardware - joist hangers
+  if (frame.beams.some(b => b.style === 'ledger')) {
+    items.push({
+      item: `LUS${frame.joists.size.replace('2x', '')} hanger`,
+      qty: joistCount
+    });
   }
   
-  // Beams
-  frame.beams.forEach(beam => {
-    if (beam.style === 'ledger') return; // No materials for ledger
-    
-    // Parse beam dimension from size like "(3)2x10"
-    let beamDimension = beam.dimension;
-    if (!beamDimension && beam.size) {
-      const match = beam.size.match(/\d+x\d+/);
-      beamDimension = match ? match[0] : null;
-    }
-    
-    if (!beamDimension || !materials.lumber[beamDimension]) {
-      console.warn(`Beam dimension not found: ${beamDimension} from size: ${beam.size}`);
-      return;
-    }
-    
-    const beamLength = findStandardLength(beam.span_ft, beamDimension);
-    const plyCount = beam.plyCount || 1;
-    
-    takeoff.push({
-      item: `${beamDimension}-${beamLength}' beam`,
-      qty: plyCount * (beam.post_count - 1), // Sections between posts
-      unitCost: materials.lumber[beamDimension].costPerFoot * beamLength * speciesMultiplier,
-      totalCost: materials.lumber[beamDimension].costPerFoot * beamLength * speciesMultiplier * plyCount * (beam.post_count - 1)
-    });
-  });
-  
-  // Posts
-  const uniquePosts = {};
-  frame.posts.forEach(post => {
-    if (!post.size || !post.height_ft) {
-      console.warn('Post missing size or height:', post);
-      return;
-    }
-    const key = `${post.size}-${post.height_ft}'`;
-    if (!uniquePosts[key]) {
-      uniquePosts[key] = 0;
-    }
-    uniquePosts[key]++;
-  });
-  
-  Object.entries(uniquePosts).forEach(([key, qty]) => {
-    const [size, lengthStr] = key.split('-');
-    const lengthNum = parseFloat(lengthStr);
-    
-    if (!materials.lumber[size]) {
-      console.warn(`Post size not found in materials: ${size}`);
-      return;
-    }
-    
-    takeoff.push({
-      item: `${key} post`,
-      qty: qty,
-      unitCost: materials.lumber[size].costPerFoot * lengthNum * speciesMultiplier,
-      totalCost: materials.lumber[size].costPerFoot * lengthNum * speciesMultiplier * qty
-    });
-  });
-  
-  // Post hardware
+  // Add hardware - post bases
   const totalPosts = frame.posts.length;
   if (totalPosts > 0) {
-    takeoff.push({
+    items.push({
       item: 'PB66 post base',
-      qty: totalPosts,
-      unitCost: materials.hardware.PB66.cost,
-      totalCost: materials.hardware.PB66.cost * totalPosts
+      qty: totalPosts
     });
     
-    takeoff.push({
-      item: 'PCZ66 post cap',
-      qty: totalPosts,
-      unitCost: materials.hardware.PCZ66.cost,
-      totalCost: materials.hardware.PCZ66.cost * totalPosts
-    });
+    // Add footings based on type
+    let footingItem = '';
+    switch(footingType) {
+      case 'helical':
+        footingItem = 'Helical pile';
+        break;
+      case 'concrete':
+        footingItem = 'Concrete footing';
+        break;
+      case 'surface':
+        footingItem = 'Surface mount pad';
+        break;
+    }
+    
+    if (footingItem) {
+      items.push({
+        item: footingItem,
+        qty: totalPosts
+      });
+    }
   }
   
-  // Calculate totals
-  const totalCost = takeoff.reduce((sum, item) => sum + item.totalCost, 0);
-  const totalBoardFeet = calculateBoardFeet(takeoff);
+  // Add rim joists only if drop beam style
+  const hasDropBeam = frame.beams.some(b => b.style === 'drop');
+  if (hasDropBeam) {
+    const rimJoistCount = 2; // One at each end perpendicular to joists
+    // Rim joists run along the beam span (perpendicular to joists)
+    const rimLength = materials.getStockLength(frame.beams[0].span_ft, frame.joists.size);
+    items.push({
+      item: `${frame.joists.size}-${rimLength}' rim joist`,
+      qty: rimJoistCount
+    });
+    
+    const rimBF = materials.calculateBoardFeet(frame.joists.size, rimLength) * rimJoistCount;
+    boardFeet[frame.joists.size] = (boardFeet[frame.joists.size] || 0) + rimBF;
+    totalBoardFeet += rimBF;
+  }
   
   return {
-    items: takeoff.map(({ item, qty }) => ({ item, qty })), // Remove cost info for output
-    totalCost,
+    items,
+    boardFeet,
     totalBoardFeet
   };
-}
-
-function findStandardLength(requiredLength, size) {
-  const lengths = materials.standardLengths[size];
-  for (const length of lengths) {
-    if (length >= requiredLength) {
-      return length;
-    }
-  }
-  return lengths[lengths.length - 1];
-}
-
-function calculateBoardFeet(takeoff) {
-  let boardFeet = 0;
-  
-  takeoff.forEach(item => {
-    if (item.item.includes('joist') || item.item.includes('beam') || item.item.includes('post')) {
-      const match = item.item.match(/(\d+)x(\d+)-(\d+)'/);
-      if (match) {
-        const width = parseInt(match[1]);
-        const depth = parseInt(match[2]);
-        const length = parseInt(match[3]);
-        boardFeet += (width * depth * length / 12) * item.qty;
-      }
-    }
-  });
-  
-  return Math.round(boardFeet);
 }

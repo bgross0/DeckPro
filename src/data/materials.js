@@ -18,7 +18,15 @@ const materials = {
     'LUS2x10': { cost: 4.00, description: '2x10 joist hanger' },
     'LUS2x12': { cost: 4.50, description: '2x12 joist hanger' },
     'PB66': { cost: 35.00, description: '6x6 post base' },
-    'PCZ66': { cost: 28.00, description: '6x6 post cap' }
+    'PCZ66': { cost: 28.00, description: '6x6 post cap' },
+    'PB105': { cost: 22.00, description: 'Beam splice plate' }
+  },
+  
+  // Footing costs by type
+  footingCosts: {
+    'helical': 500.00,
+    'concrete': 150.00,
+    'surface': 75.00
   },
   
   standardLengths: {
@@ -35,5 +43,33 @@ const materials = {
     'DF #1': 1.35,
     'HF #2': 1.15,
     'SP #2': 1.25
+  },
+  
+  // Utility functions
+  getStockLength: function(requiredLength, size) {
+    const availableLengths = this.standardLengths[size];
+    if (!availableLengths) {
+      throw new Error(`Unknown lumber size: ${size}`);
+    }
+    
+    // Find the smallest stock length that meets the requirement
+    for (const length of availableLengths) {
+      if (length >= requiredLength) {
+        return length;
+      }
+    }
+    
+    // Return the largest available if none are big enough
+    return availableLengths[availableLengths.length - 1];
+  },
+  
+  calculateBoardFeet: function(size, lengthFt) {
+    const lumber = this.lumber[size];
+    if (!lumber) {
+      throw new Error(`Unknown lumber size: ${size}`);
+    }
+    
+    // Board feet = (width in inches × thickness in inches × length in feet) / 12
+    return (lumber.widthIn * lumber.depthIn * lengthFt) / 12;
   }
 };

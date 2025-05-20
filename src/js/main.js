@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize UI controls
   const uiControls = new UIControls(store, drawingSurface, commandStack);
+  window.uiControls = uiControls; // Make globally accessible
   
   // Initialize export manager
   const exportManager = new ExportManager(drawingSurface, store);
@@ -108,12 +109,19 @@ document.addEventListener('DOMContentLoaded', () => {
       beamLayer.setBeams(state.engineOut.beams);
       beamLayer.setPosts(state.engineOut.posts);
       beamLayer.setFootprint(state.footprint);
+      beamLayer.setCantilever(state.engineOut.joists.cantilever_ft);
+      beamLayer.setJoistOrientation(state.engineOut.joists.orientation);
       
       // Update BOM table
       updateBOMTable(state.engineOut.material_takeoff);
       
       // Update framing specs
       updateFramingSpecs(state.engineOut, state.context);
+      
+      // Update cost summary  
+      if (window.uiControls) {
+        window.uiControls.updateCostSummary();
+      }
       
       // Show warnings if any
       if (state.engineOut.compliance.warnings.length > 0) {
@@ -166,40 +174,34 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Handle footprint events
   eventBus.subscribe('footprint:change', (footprint) => {
-    const state = store.getState();
     if (footprint) {
-      state.footprint = footprint;
-      state.context.width_ft = footprint.width_ft;
-      state.context.length_ft = footprint.length_ft;
-      
-      // Clear any existing structure when footprint changes
-      state.engineOut = null;
-      
-      // Update UI
+      // Use commands for undoable changes
+      uiControls.executeCommand('setFootprint', { footprint });
+    } else {
+      // Clear footprint
+      uiControls.executeCommand('clearFootprint', {});
+    }
+  });
+  
+  // Handle footprint preview (no command creation)
+  eventBus.subscribe('footprint:preview', (footprint) => {
+    if (footprint) {
+      // Update dimensions display only
       document.getElementById('width-ft').value = footprint.width_ft.toFixed(2);
       document.getElementById('length-ft').value = footprint.length_ft.toFixed(2);
       
-      // Enable generate button
-      document.getElementById('generate-btn').disabled = false;
-      document.querySelector('#generate-btn + .help-text').textContent = 'Click to generate code-compliant structure';
-    } else {
-      state.footprint = null;
-      state.context.width_ft = null;
-      state.context.length_ft = null;
+      // Update dimensions layer for visual feedback
+      dimensionLayer.setFootprint(footprint);
       
-      // Clear UI
+      // Update footprint layer (for visual preview)
+      footprintLayer.setFootprint(footprint);
+    } else {
+      // Clear dimensions when footprint is cleared
       document.getElementById('width-ft').value = '';
       document.getElementById('length-ft').value = '';
-      
-      // Disable generate button
-      document.getElementById('generate-btn').disabled = true;
-      document.querySelector('#generate-btn + .help-text').textContent = 'Draw a footprint first to enable generation';
-      
-      // Clear structure
-      state.engineOut = null;
+      dimensionLayer.setFootprint(null);
+      footprintLayer.setFootprint(null);
     }
-    
-    store.setState(state);
   });
   
   // Handle canvas:ready event

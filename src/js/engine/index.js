@@ -14,59 +14,92 @@ function computeStructure(payload) {
   };
   
   // Determine beam styles
-  input.beam_style_outer = determineBeamStyle('outer', input.beam_style_outer, input.attachment, input.footing_type);
+  input.beam_style_outer = determineBeamStyle('outer', input.beam_style_outer, input.attachment, input.footing_type, input.height_ft);
   if (input.attachment === 'free') {
-    input.beam_style_inner = determineBeamStyle('inner', input.beam_style_inner, input.attachment, input.footing_type);
+    input.beam_style_inner = determineBeamStyle('inner', input.beam_style_inner, input.attachment, input.footing_type, input.height_ft);
   }
   
-  // Calculate joists
+  // Determine joist span direction - joists ALWAYS span the shorter dimension
+  const shortDimension = Math.min(input.width_ft, input.length_ft);
+  const longDimension = Math.max(input.width_ft, input.length_ft);
+  
+  // If width is shorter, joists span width (normal orientation)
+  // If length is shorter, joists span length (rotated orientation)
+  const joistsSpanWidth = input.width_ft <= input.length_ft;
+  
+  // Calculate joists based on the shorter dimension
   const joists = selectJoist(
-    input.width_ft,
+    shortDimension,  // Joists always span the shorter dimension
     input.species_grade,
     input.forced_joist_spacing_in,
-    input.decking_type
+    input.decking_type,
+    input.beam_style_outer,
+    longDimension,  // Pass the long dimension for joist count calculation
+    input.optimization_goal,
+    input.footing_type
   );
   
-  // Calculate beams
+  // Store orientation info in joists object
+  joists.orientation = joistsSpanWidth ? 'width' : 'length';
+  
+  // Calculate beams based on correct dimensions
   const beams = [];
   
-  // Outer beam
-  const outerTributary = getJoistTributaryWidth(joists.spacing_in, 'outer', input.width_ft);
-  const outerBeam = selectBeam(input.length_ft, outerTributary, input.species_grade);
+  // Beams run along the long dimension and support joists spanning the short dimension
+  const beamSpan = longDimension;  // Beams span the long dimension
+  const joistSpan = shortDimension;  // For IRC R507.5 table lookup
+  
+  // Outer beam - uses actual joist span for IRC R507.5 table lookup
+  const outerBeam = selectBeam(beamSpan, joistSpan, input.species_grade, input.footing_type);
   beams.push({
     position: 'outer',
     style: input.beam_style_outer,
     size: outerBeam.size,
     post_spacing_ft: outerBeam.post_spacing_ft,
     post_count: outerBeam.post_count,
-    span_ft: input.length_ft,
+    span_ft: beamSpan,
     dimension: outerBeam.dimension,
-    plyCount: outerBeam.plyCount
+    plyCount: outerBeam.plyCount,
+    segments: outerBeam.segments,
+    spliced: outerBeam.spliced || false
   });
   
   // Inner beam/ledger
+  console.log('Determining inner beam/ledger. Attachment:', input.attachment);
+  
   if (input.attachment === 'ledger') {
     beams.push({
       position: 'inner',
       style: 'ledger'
     });
   } else {
-    const innerTributary = getJoistTributaryWidth(joists.spacing_in, 'inner', input.width_ft);
-    const innerBeam = selectBeam(input.length_ft, innerTributary, input.species_grade);
-    beams.push({
+    // For freestanding (or any non-ledger), add inner beam
+    console.log('Creating inner beam for freestanding deck');
+    const innerBeam = selectBeam(beamSpan, joistSpan, input.species_grade, input.footing_type);
+    const innerBeamData = {
       position: 'inner',
-      style: input.beam_style_inner,
+      style: input.beam_style_inner || 'drop',
       size: innerBeam.size,
       post_spacing_ft: innerBeam.post_spacing_ft,
       post_count: innerBeam.post_count,
-      span_ft: input.length_ft,
+      span_ft: beamSpan,
       dimension: innerBeam.dimension,
-      plyCount: innerBeam.plyCount
-    });
+      plyCount: innerBeam.plyCount,
+      segments: innerBeam.segments,
+      spliced: innerBeam.spliced || false
+    };
+    console.log('Inner beam data:', innerBeamData);
+    beams.push(innerBeamData);
   }
   
-  // Generate posts
-  const posts = generatePostList(beams, input.height_ft, input.footing_type, input.width_ft);
+  console.log('Total beams:', beams.length);
+  console.log('Beams:', beams);
+  
+  // Generate posts with correct positions based on orientation
+  // When joists span width (horizontal), beams run vertically along length, posts positioned across width
+  // When joists span length (vertical), beams run horizontally along width, posts positioned across length
+  const deckDimensionForPosts = joistsSpanWidth ? input.width_ft : input.length_ft;
+  const posts = generatePostList(beams, input.height_ft, input.footing_type, deckDimensionForPosts, joists.cantilever_ft);
   
   // Create frame configuration
   const frame = {
@@ -75,8 +108,8 @@ function computeStructure(payload) {
     posts
   };
   
-  // Generate material takeoff
-  const takeoff = generateMaterialTakeoff(frame, input.species_grade);
+  // Generate material takeoff with correct joist lengths
+  const takeoff = generateMaterialTakeoff(frame, input.species_grade, input.footing_type);
   
   // Calculate metrics
   const metrics = {};
@@ -98,14 +131,22 @@ function computeStructure(payload) {
     joists: {
       size: joists.size,
       spacing_in: joists.spacing_in,
-      cantilever_ft: joists.cantilever_ft
+      span_ft: joists.span_ft,
+      cantilever_ft: joists.cantilever_ft,
+      orientation: joists.orientation,
+      count: joists.count,
+      total_length_ft: joists.total_length_ft
     },
     beams: beams.map(beam => ({
       position: beam.position,
       style: beam.style,
       size: beam.size,
       post_spacing_ft: beam.post_spacing_ft,
-      post_count: beam.post_count
+      post_count: beam.post_count,
+      dimension: beam.dimension,
+      plyCount: beam.plyCount,
+      segments: beam.segments,
+      spliced: beam.spliced
     })),
     posts: posts.map(post => ({ x: post.x, y: post.y })),
     material_takeoff: takeoff.items,
@@ -139,8 +180,8 @@ function checkCompliance(input, frame) {
     warnings.push(`${input.decking_type} requires max ${maxDeckingSpacing}" joist spacing`);
   }
   
-  // Check cantilever limit
-  if (frame.joists.cantilever_ft > frame.joists.span_ft / 4) {
+  // Check cantilever limit (only if cantilever exists)
+  if (frame.joists.cantilever_ft > 0 && frame.joists.cantilever_ft > frame.joists.span_ft / 4) {
     warnings.push('Cantilever exceeds 1/4 of back-span');
   }
   

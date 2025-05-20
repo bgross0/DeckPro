@@ -16,6 +16,8 @@ class UIControls {
     } else {
       this.setupEventListeners();
       this.updateUIFromState();
+      // Delay material cost listeners to ensure DOM is ready
+      setTimeout(() => this.setupMaterialCostListeners(), 100);
     }
   }
   
@@ -163,12 +165,12 @@ class UIControls {
     document.getElementById('height-ft').addEventListener('change', (e) => {
       const height = parseFloat(e.target.value);
       if (height >= 0) {
-        this.executeCommand('setHeight', { height_ft: height });
+        this.executeCommand('setContext', { height_ft: height });
       }
     });
     
     document.getElementById('attachment').addEventListener('change', (e) => {
-      this.executeCommand('setAttachment', { attachment: e.target.value });
+      this.executeCommand('setContext', { attachment: e.target.value });
       this.updateUIVisibility();
     });
     
@@ -242,6 +244,7 @@ class UIControls {
   }
   
   executeCommand(type, data) {
+    console.log('Executing command:', type, data);
     const command = this.createCommand(type, data);
     this.commandStack.execute(command);
     this.updateUIFromState();
@@ -327,6 +330,93 @@ class UIControls {
           }
         };
         
+      case 'setFootprint':
+        const self = this;  // Preserve context
+        return {
+          tag: 'setFootprint',
+          apply: () => {
+            const oldState = store.getState();
+            const oldFootprint = oldState.footprint;
+            const oldWidthContext = oldState.context.width_ft;
+            const oldLengthContext = oldState.context.length_ft;
+            const { footprint } = data;
+            
+            store.setState({
+              footprint: footprint,
+              context: {
+                ...oldState.context,
+                width_ft: footprint.width_ft,
+                length_ft: footprint.length_ft
+              },
+              engineOut: null // Clear any existing structure
+            });
+            
+            // Update UI
+            self.updateUIFromState();
+            
+            return {
+              tag: 'setFootprint',
+              apply: () => {
+                const state = store.getState();
+                store.setState({
+                  footprint: oldFootprint,
+                  context: {
+                    ...state.context,
+                    width_ft: oldWidthContext,
+                    length_ft: oldLengthContext
+                  },
+                  engineOut: null
+                });
+                self.updateUIFromState();
+                return self.createCommand('setFootprint', { footprint });
+              }
+            };
+          }
+        };
+        
+      case 'clearFootprint':
+        const clearSelf = this;  // Preserve context
+        return {
+          tag: 'clearFootprint',
+          apply: () => {
+            const oldState = store.getState();
+            const oldFootprint = oldState.footprint;
+            const oldWidthContext = oldState.context.width_ft;
+            const oldLengthContext = oldState.context.length_ft;
+            
+            store.setState({
+              footprint: null,
+              context: {
+                ...oldState.context,
+                width_ft: null,
+                length_ft: null
+              },
+              engineOut: null
+            });
+            
+            // Update UI
+            clearSelf.updateUIFromState();
+            
+            return {
+              tag: 'setFootprint',
+              apply: () => {
+                const state = store.getState();
+                store.setState({
+                  footprint: oldFootprint,
+                  context: {
+                    ...state.context,
+                    width_ft: oldWidthContext,
+                    length_ft: oldLengthContext
+                  },
+                  engineOut: null
+                });
+                clearSelf.updateUIFromState();
+                return clearSelf.createCommand('clearFootprint', {});
+              }
+            };
+          }
+        };
+        
       default:
         throw new Error(`Unknown command type: ${type}`);
     }
@@ -368,6 +458,23 @@ class UIControls {
     document.getElementById('grid-visible').checked = state.gridCfg.visible;
     document.getElementById('grid-snap').checked = state.gridCfg.snap;
     document.getElementById('grid-spacing').value = state.gridCfg.spacing_in;
+    
+    // Update generate button
+    const generateBtn = document.getElementById('generate-btn');
+    const generateHelpText = document.querySelector('#generate-btn + .help-text');
+    if (generateBtn) {
+      if (state.footprint && state.footprint.width_ft > 0 && state.footprint.length_ft > 0) {
+        generateBtn.disabled = false;
+        if (generateHelpText) {
+          generateHelpText.textContent = 'Click to generate code-compliant structure';
+        }
+      } else {
+        generateBtn.disabled = true;
+        if (generateHelpText) {
+          generateHelpText.textContent = 'Draw a footprint first to enable generation';
+        }
+      }
+    }
     
     this.updateUIVisibility();
   }
@@ -459,5 +566,124 @@ class UIControls {
     window.updateBOMTable(null);
     
     eventBus.emit('canvas:clear');
+  }
+
+  setupMaterialCostListeners() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.setupMaterialCostListeners());
+      return;
+    }
+
+    // Lumber costs
+    const lumberCosts = ['2x6', '2x8', '2x10', '2x12', '6x6'];
+    lumberCosts.forEach(size => {
+      const input = document.getElementById(`cost-${size}`);
+      if (input) {
+        input.addEventListener('change', (e) => {
+          const value = parseFloat(e.target.value) || 0;
+          materials.lumber[size].costPerFoot = value;
+          this.updateCostSummary();
+        });
+      }
+    });
+
+    // Hardware costs
+    const hardwareCosts = {
+      'joist-hanger': 'LUS2x8', // Generic joist hanger
+      'post-base': 'PB66',
+      'post-cap': 'PCZ66',
+      'splice-plate': 'PB105'
+    };
+    
+    Object.entries(hardwareCosts).forEach(([id, key]) => {
+      const input = document.getElementById(`cost-${id}`);
+      if (input) {
+        input.addEventListener('change', (e) => {
+          const value = parseFloat(e.target.value) || 0;
+          materials.hardware[key].cost = value;
+          // Update all joist hanger sizes
+          if (id === 'joist-hanger') {
+            ['LUS26', 'LUS28', 'LUS210', 'LUS212', 'LUS2x6', 'LUS2x8', 'LUS2x10', 'LUS2x12'].forEach(hanger => {
+              materials.hardware[hanger].cost = value;
+            });
+          }
+          this.updateCostSummary();
+        });
+      }
+    });
+
+    // Footing costs
+    const footingTypes = ['helical', 'concrete', 'surface'];
+    footingTypes.forEach(type => {
+      const input = document.getElementById(`cost-${type}`);
+      if (input) {
+        input.addEventListener('change', (e) => {
+          const value = parseFloat(e.target.value) || 0;
+          materials.footingCosts[type] = value;
+          this.updateCostSummary();
+        });
+      }
+    });
+  }
+
+  updateCostSummary() {
+    try {
+      const state = this.store.getState();
+      if (!state.engineOut || !state.engineOut.material_takeoff) {
+        return;
+      }
+
+      // Calculate total cost based on current prices
+      let totalCost = 0;
+      const breakdown = {};
+
+      state.engineOut.material_takeoff.forEach(item => {
+        // Qty is always just a number in our takeoff
+        const amount = parseInt(item.qty) || 0;
+      
+      // Determine cost based on item type
+      let itemCost = 0;
+      if (item.item.includes('2x') || item.item.includes('6x6')) {
+        // Lumber - extract size
+        const sizeMatch = item.item.match(/([26])x(\d+)/);
+        if (sizeMatch) {
+          const size = sizeMatch[0];
+          if (materials.lumber[size]) {
+            itemCost = amount * materials.lumber[size].costPerFoot;
+            breakdown[size] = (breakdown[size] || 0) + itemCost;
+          }
+        }
+      } else if (item.item.includes('hanger')) {
+        itemCost = amount * materials.hardware.LUS2x8.cost; // Use generic hanger cost
+        breakdown['hangers'] = (breakdown['hangers'] || 0) + itemCost;
+      } else if (item.item.includes('post base')) {
+        itemCost = amount * materials.hardware.PB66.cost;
+        breakdown['post_bases'] = (breakdown['post_bases'] || 0) + itemCost;
+      } else if (item.item.includes('pile') || item.item.includes('footing')) {
+        const footingType = state.context.footing_type;
+        itemCost = amount * materials.footingCosts[footingType];
+        breakdown['footings'] = (breakdown['footings'] || 0) + itemCost;
+      }
+      
+      totalCost += itemCost;
+    });
+
+    // Update the cost summary display
+    const summaryDiv = document.getElementById('cost-summary');
+    if (summaryDiv) {
+      let html = '<div class="cost-breakdown">';
+      html += `<p><strong>Total Cost:</strong> $${totalCost.toFixed(2)}</p>`;
+      html += '<p><strong>Breakdown:</strong></p>';
+      html += '<ul>';
+      Object.entries(breakdown).forEach(([category, cost]) => {
+        html += `<li>${category}: $${cost.toFixed(2)}</li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+      summaryDiv.innerHTML = html;
+    }
+    } catch (error) {
+      console.error('Error updating cost summary:', error);
+    }
   }
 }

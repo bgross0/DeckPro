@@ -37,7 +37,7 @@ function calculatePostHeight(deckHeight, footingType) {
   return standardLengths[standardLengths.length - 1];
 }
 
-function generatePostList(beams, deckHeight, footingType, deckWidth) {
+function generatePostList(beams, deckHeight, footingType, deckWidth, cantilever = 0) {
   const posts = [];
   
   beams.forEach((beam, index) => {
@@ -49,8 +49,10 @@ function generatePostList(beams, deckHeight, footingType, deckWidth) {
     // Determine y position based on beam position
     let yPosition = 0;
     if (beam.position === 'outer') {
-      // Outer beam is at the full width of the deck
-      yPosition = deckWidth;
+      // Outer beam position depends on cantilever
+      // For drop beams with cantilever, beam is inside the deck edge
+      // For no cantilever, beam is at the deck edge
+      yPosition = deckWidth - cantilever;
     } else if (beam.position === 'inner' && beam.style !== 'ledger') {
       // Inner beam for freestanding deck is at y=0
       yPosition = 0;

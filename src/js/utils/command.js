@@ -16,9 +16,11 @@ class CommandStack {
   }
   
   undo() {
+    console.log('CommandStack.undo called. History length:', this.history.length);
     if (this.history.length === 0) return null;
     
     const command = this.history.pop();
+    console.log('Undoing command:', command.tag);
     const invertedCommand = command.apply();
     this.future.push(invertedCommand);
     return command;

@@ -178,8 +178,9 @@ class FootprintLayer extends Layer {
       this.footprint.width_ft = this.surface.pixelsToFeet(width);
       this.footprint.length_ft = this.surface.pixelsToFeet(height);
       
-      // Update UI and emit change
-      eventBus.emit('footprint:change', this.footprint);
+      // Update dimensions display without creating command
+      console.log('Emitting footprint:preview with:', this.footprint);
+      eventBus.emit('footprint:preview', this.footprint);
       this.surface.draw();
     } else if (this.isDragging && this.dragStart && this.footprint) {
       // Moving existing rectangle
@@ -203,8 +204,9 @@ class FootprintLayer extends Layer {
       
       this.dragStart = worldPos;
       
-      // Emit change event
-      eventBus.emit('footprint:change', this.footprint);
+      // Update display without creating command
+      eventBus.emit('footprint:preview', this.footprint);
+      this.surface.draw();
     }
   }
   
@@ -217,10 +219,16 @@ class FootprintLayer extends Layer {
       if (this.footprint.width_ft < 1 || this.footprint.length_ft < 1) {
         this.footprint = null;
         eventBus.emit('footprint:change', null);
+        eventBus.emit('footprint:preview', null);
       } else {
         // Just emit the footprint change, don't generate structure
         eventBus.emit('footprint:change', this.footprint);
       }
+    }
+    
+    if (this.isDragging && this.footprint) {
+      // Emit final position after dragging
+      eventBus.emit('footprint:change', this.footprint);
     }
     
     this.isDragging = false;
