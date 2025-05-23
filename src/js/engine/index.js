@@ -125,6 +125,18 @@ function computeStructure(payload) {
   // Check compliance
   const warnings = checkCompliance(input, frame);
   
+  // Add hardware compliance validation
+  if (takeoff.detailedHardware) {
+    const deckConfig = {
+      species: input.species_grade,
+      footingType: input.footing_type,
+      hasLedger: frame.beams.some(b => b.style === 'ledger'),
+      hasCantilever: frame.joists.cantilever_ft > 0
+    };
+    const hardwareWarnings = validateHardwareCompliance(frame, deckConfig, takeoff.detailedHardware);
+    warnings.push(...hardwareWarnings);
+  }
+  
   // Format output
   return {
     optimization_goal: input.optimization_goal,

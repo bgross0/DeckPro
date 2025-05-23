@@ -100,6 +100,10 @@ class DrawingSurface {
       document.body.classList.add('touch-device');
     }
     
+    // Mobile drawing state tracking
+    this.isDrawingMode = false;
+    this.drawingTouchId = null;
+    
     // Mouse events for panning
     this.canvas.addEventListener('mousedown', (e) => {
       // Only pan with middle mouse button or right-click + shift
@@ -160,9 +164,9 @@ class DrawingSurface {
       this.draw();
     });
     
-    // Touch events for panning (one finger)
+    // Touch events for panning (one finger) - only when not drawing
     this.canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
+      if (e.touches.length === 1 && !this.isDrawingMode) {
         isPanning = true;
         lastX = e.touches[0].clientX;
         lastY = e.touches[0].clientY;
@@ -170,7 +174,7 @@ class DrawingSurface {
     });
     
     this.canvas.addEventListener('touchmove', (e) => {
-      if (isPanning && e.touches.length === 1) {
+      if (isPanning && e.touches.length === 1 && !this.isDrawingMode) {
         const dx = e.touches[0].clientX - lastX;
         const dy = e.touches[0].clientY - lastY;
         
@@ -265,6 +269,18 @@ class DrawingSurface {
   
   pixelsToFeet(pixels) {
     return pixels / this.pixelsPerFoot;
+  }
+  
+  setDrawingMode(enabled) {
+    this.isDrawingMode = enabled;
+    console.log('Drawing mode set to:', enabled);
+    
+    // Add visual feedback for drawing mode
+    if (enabled) {
+      document.body.classList.add('drawing-active');
+    } else {
+      document.body.classList.remove('drawing-active');
+    }
   }
 }
 

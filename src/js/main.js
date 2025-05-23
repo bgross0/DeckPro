@@ -36,12 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('deck-canvas');
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggle-sidebar-btn');
+    const backdrop = document.getElementById('sidebar-backdrop');
     
     if (canvas && sidebar) {
       const handler = () => {
         if (sidebar.classList.contains('visible')) {
           sidebar.classList.remove('visible');
           if (toggleBtn) toggleBtn.classList.remove('active');
+          if (backdrop) backdrop.classList.remove('visible');
         }
       };
       addGlobalListener(canvas, 'click', handler);
@@ -180,8 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Touch events for drawing
   canvas.addEventListener('touchstart', (e) => {
-    // We're supporting drawing with one finger
-    if (e.touches.length === 1) {
+    // We're supporting drawing with one finger when rectangle tool is active
+    if (e.touches.length === 1 && footprintLayer.currentTool === 'rectangle') {
+      // Enable drawing mode to prevent canvas panning
+      drawingSurface.setDrawingMode(true);
+      
       const touch = e.touches[0];
       const simulatedEvent = {
         button: 0, // Simulate left mouse button
@@ -189,17 +194,14 @@ document.addEventListener('DOMContentLoaded', () => {
         clientY: touch.clientY,
         preventDefault: function() { e.preventDefault(); }
       };
-      console.log('TouchStart: simulating mousedown');
+      console.log('TouchStart: simulating mousedown, drawing mode enabled');
       footprintLayer.handleMouseDown(simulatedEvent);
-      // Only prevent default on touch events
-      if (e.type === 'touchstart') {
-        e.preventDefault();
-      }
+      e.preventDefault();
     }
   });
   
   canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && drawingSurface.isDrawingMode) {
       const touch = e.touches[0];
       const simulatedEvent = {
         clientX: touch.clientX,
@@ -207,22 +209,21 @@ document.addEventListener('DOMContentLoaded', () => {
         preventDefault: function() { e.preventDefault(); }
       };
       footprintLayer.handleMouseMove(simulatedEvent);
-      // Only prevent default on touch events
-      if (e.type === 'touchmove') {
-        e.preventDefault(); // Prevent scrolling while drawing
-      }
+      e.preventDefault(); // Prevent scrolling while drawing
     }
   });
   
   canvas.addEventListener('touchend', (e) => {
-    const simulatedEvent = {
-      button: 0, // Simulate left mouse button
-      preventDefault: function() { e.preventDefault(); }
-    };
-    console.log('TouchEnd: simulating mouseup');
-    footprintLayer.handleMouseUp(simulatedEvent);
-    // Only prevent default on touch events
-    if (e.type === 'touchend') {
+    if (drawingSurface.isDrawingMode) {
+      const simulatedEvent = {
+        button: 0, // Simulate left mouse button
+        preventDefault: function() { e.preventDefault(); }
+      };
+      console.log('TouchEnd: simulating mouseup, disabling drawing mode');
+      footprintLayer.handleMouseUp(simulatedEvent);
+      
+      // Disable drawing mode after drawing is complete
+      drawingSurface.setDrawingMode(false);
       e.preventDefault();
     }
   });
@@ -427,17 +428,58 @@ function updateBOMTable(materialTakeoff) {
   if (!materialTakeoff || materialTakeoff.length === 0) {
     const row = tbody.insertRow();
     const cell = row.insertCell(0);
-    cell.colSpan = 2;
+    cell.colSpan = 3; // Updated for new cost column
     cell.textContent = 'No materials calculated';
     cell.style.textAlign = 'center';
     cell.style.fontStyle = 'italic';
     return;
   }
   
+  // Group items by category for better organization
+  const groupedItems = {
+    lumber: [],
+    hardware: [],
+    fasteners: [],
+    other: []
+  };
+  
   materialTakeoff.forEach(item => {
-    const row = tbody.insertRow();
-    row.insertCell(0).textContent = item.item;
-    row.insertCell(1).textContent = item.qty;
+    const category = item.category || 'lumber';
+    if (groupedItems[category]) {
+      groupedItems[category].push(item);
+    } else {
+      groupedItems.other.push(item);
+    }
+  });
+  
+  // Add section headers and items
+  Object.entries(groupedItems).forEach(([category, items]) => {
+    if (items.length === 0) return;
+    
+    // Add category header
+    const headerRow = tbody.insertRow();
+    headerRow.style.backgroundColor = '#f0f0f0';
+    headerRow.style.fontWeight = 'bold';
+    const headerCell = headerRow.insertCell(0);
+    headerCell.colSpan = 3;
+    headerCell.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+    
+    // Add items in category
+    items.forEach(item => {
+      const row = tbody.insertRow();
+      row.insertCell(0).textContent = item.item;
+      row.insertCell(1).textContent = item.qty;
+      
+      // Add cost cell if available
+      const costCell = row.insertCell(2);
+      if (item.totalCost) {
+        costCell.textContent = `$${item.totalCost.toFixed(2)}`;
+        costCell.style.textAlign = 'right';
+      } else {
+        costCell.textContent = '-';
+        costCell.style.textAlign = 'center';
+      }
+    });
   });
 }
 

@@ -7,7 +7,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:old": "node tests/run-tests.js"
+    "test:old": "node tests/run-tests.js",\n    "build": "node ../build-prod.js",\n    "ship": "npm run build && echo 'Ready for deployment!'"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

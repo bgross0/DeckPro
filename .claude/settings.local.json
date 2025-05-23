@@ -5,7 +5,12 @@
       "Bash(rm:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }

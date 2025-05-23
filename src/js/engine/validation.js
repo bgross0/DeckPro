@@ -65,3 +65,72 @@ class EngineError extends Error {
     this.name = 'EngineError';
   }
 }
+
+// Hardware validation following existing patterns
+function validateHardwareCompliance(frame, deckConfig, detailedHardware) {
+  const warnings = [];
+  
+  try {
+    // Validate joist hanger requirements
+    if (deckConfig.hasLedger) {
+      const joistCount = frame.joists.count;
+      const hangerCount = detailedHardware.joistHangers.reduce((sum, h) => sum + h.qty, 0);
+      
+      if (hangerCount < joistCount) {
+        warnings.push('Insufficient joist hangers for ledger attachment - all joists require hangers');
+      }
+      
+      // Check for end joist concealed hangers
+      const concealedHangers = detailedHardware.joistHangers.filter(h => h.model.includes('LSSU'));
+      if (concealedHangers.length === 0) {
+        warnings.push('End joists should use concealed flange hangers (LSSU) for better appearance');
+      }
+    }
+    
+    // Validate structural ties for cantilevers
+    if (deckConfig.hasCantilever && frame.joists.cantilever_ft > 2) {
+      const heavyTies = detailedHardware.structuralTies.filter(t => t.model === 'H2.5A');
+      if (heavyTies.length === 0) {
+        warnings.push('Cantilevers over 2 ft require H2.5A heavy hurricane ties');
+      }
+    }
+    
+    // Validate DTT1Z spacing for ledger connections
+    if (deckConfig.hasLedger) {
+      const dttTies = detailedHardware.structuralTies.filter(t => t.model === 'DTT1Z');
+      const requiredDTT = Math.ceil(frame.joists.count / 4);
+      
+      if (dttTies.length > 0 && dttTies[0].qty < requiredDTT) {
+        warnings.push('DTT1Z deck tension ties required every 4th joist for ledger attachment');
+      }
+    }
+    
+    // Validate post connections
+    const postCount = frame.posts ? frame.posts.length : 0;
+    if (postCount > 0) {
+      const postCaps = detailedHardware.postConnections.filter(p => p.model.includes('BC') || p.model.includes('CBSQ'));
+      if (postCaps.length === 0 || postCaps.reduce((sum, p) => sum + p.qty, 0) < postCount) {
+        warnings.push('All posts require structural post caps for beam connection');
+      }
+    }
+    
+    // Validate fastener quantities
+    const totalHardware = [...detailedHardware.joistHangers, ...detailedHardware.structuralTies, ...detailedHardware.postConnections];
+    const requiredNails = totalHardware.reduce((sum, item) => sum + (item.qty * (item.nailsRequired || 0)), 0);
+    const requiredScrews = totalHardware.reduce((sum, item) => sum + (item.qty * (item.screwsRequired || 0)), 0);
+    
+    if (requiredNails > 0 && detailedHardware.fasteners.nails.length === 0) {
+      warnings.push('Joist hanger nails required for proper hardware installation');
+    }
+    
+    if (requiredScrews > 0 && detailedHardware.fasteners.screws.length === 0) {
+      warnings.push('Structural screws required for proper hardware installation');
+    }
+    
+  } catch (error) {
+    console.warn('Hardware validation warning:', error.message);
+    // Don't fail validation on hardware errors - graceful degradation
+  }
+  
+  return warnings;
+}
