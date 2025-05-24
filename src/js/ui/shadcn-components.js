@@ -84,7 +84,39 @@ window.ShadCNComponents = class ShadCNComponents {
     }
   }
 
-  handleSettingsSelection(action) {\n    console.log('Settings action:', action);\n    \n    switch (action) {\n      case 'pricing':\n        // Open pricing modal\n        const pricingModal = document.getElementById('pricing-modal');\n        if (pricingModal) {\n          pricingModal.style.display = 'flex';\n        }\n        break;\n        \n      case 'units':\n        this.showAlert('Units & Precision settings coming soon!', 'default');\n        break;\n        \n      case 'export-settings':\n        this.showAlert('Export settings coming soon!', 'default');\n        break;\n        \n      case 'reset':\n        if (confirm('Reset all settings to defaults?')) {\n          this.showAlert('Settings reset to defaults', 'success');\n          // Add actual reset logic here\n        }\n        break;\n        \n      default:\n        console.log('Unknown settings action:', action);\n    }\n  }\n\n  // Collapsible functionality
+  handleSettingsSelection(action) {
+    logger.log('Settings action:', action);
+    
+    switch (action) {
+      case 'pricing':
+        // Open pricing modal
+        const pricingModal = document.getElementById('pricing-modal');
+        if (pricingModal) {
+          pricingModal.style.display = 'flex';
+        }
+        break;
+        
+      case 'units':
+        this.showAlert('Units & Precision settings coming soon!', 'default');
+        break;
+        
+      case 'export-settings':
+        this.showAlert('Export settings coming soon!', 'default');
+        break;
+        
+      case 'reset':
+        if (confirm('Reset all settings to defaults?')) {
+          this.showAlert('Settings reset to defaults', 'success');
+          // Add actual reset logic here
+        }
+        break;
+        
+      default:
+        logger.log('Unknown settings action:', action);
+    }
+  }
+
+  // Collapsible functionality
   setupCollapsibles() {
     const collapsibles = document.querySelectorAll('.collapsible');
     
@@ -292,7 +324,6 @@ window.ShadCNComponents = class ShadCNComponents {
 }
 
 // Initialize ShadCN components when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   window.shadcnComponents = new ShadCNComponents();
   

@@ -128,7 +128,7 @@ function validateHardwareCompliance(frame, deckConfig, detailedHardware) {
     }
     
   } catch (error) {
-    console.warn('Hardware validation warning:', error.message);
+    logger.warn('Hardware validation warning:', error.message);
     // Don't fail validation on hardware errors - graceful degradation
   }
   

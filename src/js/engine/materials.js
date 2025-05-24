@@ -36,7 +36,7 @@ function calculateHardwareRequirements(frame, deckConfig) {
     hardware.fasteners = calculateFasteners(hardware);
     
   } catch (error) {
-    console.warn('Hardware calculation warning:', error.message);
+    logger.warn('Hardware calculation warning:', error.message);
     // Graceful fallback - return empty hardware (maintains compatibility)
   }
   

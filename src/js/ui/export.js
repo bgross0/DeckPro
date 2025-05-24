@@ -70,7 +70,7 @@ class ExportManager {
           this.exportCSV();
         }
       } catch (error) {
-        console.error('Export error:', error);
+        logger.error('Export error:', error);
         alert('Export failed: ' + error.message);
       }
     });

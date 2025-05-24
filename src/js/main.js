@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Setup cleanup for page unload
   window.addEventListener('beforeunload', () => {
-    console.log('Cleaning up global event listeners');
+    logger.log('Cleaning up global event listeners');
     mainListeners.forEach(({ element, eventType, handler }) => {
       element.removeEventListener(eventType, handler);
     });
@@ -116,9 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const commandStack = new CommandStack(20);
   
   // Initialize UI controls
-  console.log('UIControls available:', typeof UIControls !== 'undefined');
+  logger.log('UIControls available:', typeof UIControls !== 'undefined');
   if (typeof UIControls === 'undefined') {
-    console.error('UIControls class is not defined! Check that controls.js is loaded properly.');
+    logger.error('UIControls class is not defined! Check that controls.js is loaded properly.');
     alert('Error: UIControls is not defined. The application may not work correctly.');
   }
   const uiControls = new UIControls(store, drawingSurface, commandStack);
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('mousedown', (e) => {
     // Only handle left click for drawing
     if (e.button === 0) {
-      console.log('MouseDown event:', {
+      logger.log('MouseDown event:', {
         tool: footprintLayer.currentTool,
         button: e.button,
         clientX: e.clientX,
@@ -153,9 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Try to handle the mouse down event
         try {
           const handled = footprintLayer.handleMouseDown(e);
-          console.log('MouseDown handled:', handled);
+          logger.log('MouseDown handled:', handled);
         } catch (error) {
-          console.error('Error in handleMouseDown:', error);
+          logger.error('Error in handleMouseDown:', error);
         }
       }
     }
@@ -165,17 +165,17 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       footprintLayer.handleMouseMove(e);
     } catch (error) {
-      console.error('Error in handleMouseMove:', error);
+      logger.error('Error in handleMouseMove:', error);
     }
   });
   
   canvas.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
-      console.log('MouseUp');
+      logger.log('MouseUp');
       try {
         footprintLayer.handleMouseUp(e);
       } catch (error) {
-        console.error('Error in handleMouseUp:', error);
+        logger.error('Error in handleMouseUp:', error);
       }
     }
   });
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clientY: touch.clientY,
         preventDefault: function() { e.preventDefault(); }
       };
-      console.log('TouchStart: simulating mousedown, drawing mode enabled');
+      logger.log('TouchStart: simulating mousedown, drawing mode enabled');
       footprintLayer.handleMouseDown(simulatedEvent);
       e.preventDefault();
     }
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button: 0, // Simulate left mouse button
         preventDefault: function() { e.preventDefault(); }
       };
-      console.log('TouchEnd: simulating mouseup, disabling drawing mode');
+      logger.log('TouchEnd: simulating mouseup, disabling drawing mode');
       footprintLayer.handleMouseUp(simulatedEvent);
       
       // Disable drawing mode after drawing is complete
@@ -236,14 +236,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set up event subscriptions
   store.subscribe((state) => {
-    console.log('Store subscription - updating layers with state:', state);
+    logger.log('Store subscription - updating layers with state:', state);
     
     // Update layers with new state
     footprintLayer.setFootprint(state.footprint);
     dimensionLayer.setFootprint(state.footprint);
     
     if (state.engineOut) {
-      console.log('Updating structure layers with engine output:', state.engineOut);
+      logger.log('Updating structure layers with engine output:', state.engineOut);
       joistLayer.setJoists(state.engineOut.joists);
       joistLayer.setFootprint(state.footprint);
       
@@ -260,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateFramingSpecs(state.engineOut, state.context);
       
       // Update cost summary  
-      if (window.uiControls) {
-        window.uiControls.updateCostSummary();
+      if (window.MaterialCostUtils) {
+        window.MaterialCostUtils.updateCostSummary(store);
       }
       
       // Show warnings if any
@@ -290,20 +290,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle canvas:compute events
   let computeTimer = null;
   eventBus.subscribe('canvas:compute', ({ payload }) => {
-    console.log('canvas:compute event received with payload:', payload);
+    logger.log('canvas:compute event received with payload:', payload);
     clearTimeout(computeTimer);
     computeTimer = setTimeout(() => {
       try {
-        console.log('Computing structure...');
+        logger.log('Computing structure...');
         const result = computeStructure(payload);
-        console.log('Structure computed:', result);
+        logger.log('Structure computed:', result);
         const state = store.getState();
         store.setState({
           ...state,
           engineOut: result
         });
       } catch (error) {
-        console.error('Computation error:', error);
+        logger.error('Computation error:', error);
         if (error.code === 'SPAN_EXCEEDED' || error.code === 'INVALID_INPUT') {
           showWarnings([error.message]);
         } else {
@@ -362,12 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Initial draw with extra logging
-  console.log('Initial draw with zoom:', drawingSurface.zoom);
+  logger.log('Initial draw with zoom:', drawingSurface.zoom);
   drawingSurface.draw();
   
   // Force a redraw after a short delay to handle any initialization issues
   setTimeout(() => {
-    console.log('Forced redraw after initialization');
+    logger.log('Forced redraw after initialization');
     // Explicitly show the grid and draw
     const gridLayerAfterInit = drawingSurface.layers.find(l => l.id === 'grid');
     if (gridLayerAfterInit) {
@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set another timeout for a second redraw, in case the first one doesn't work
     setTimeout(() => {
-      console.log('Second forced redraw');
+      logger.log('Second forced redraw');
       drawingSurface.draw();
     }, 1000);
   }, 500);
@@ -391,16 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Add debug tool function
   window.debugState = function() {
-    console.log('=== DEBUG STATE ===');
-    console.log('Current tool:', footprintLayer.currentTool);
-    console.log('Drawing?', footprintLayer.isDrawing);
-    console.log('Current footprint:', footprintLayer.footprint);
-    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-    console.log('Canvas rect:', canvas.getBoundingClientRect());
-    console.log('Canvas zoom:', drawingSurface.zoom);
-    console.log('Pan position:', drawingSurface.pan);
-    console.log('Grid visible?', drawingSurface.layers.find(l => l.id === 'grid').visible);
-    return 'Debug info logged to console.';
+    logger.log('=== DEBUG STATE ===');
+    logger.log('Current tool:', footprintLayer.currentTool);
+    logger.log('Drawing?', footprintLayer.isDrawing);
+    logger.log('Current footprint:', footprintLayer.footprint);
+    logger.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+    logger.log('Canvas rect:', canvas.getBoundingClientRect());
+    logger.log('Canvas zoom:', drawingSurface.zoom);
+    logger.log('Pan position:', drawingSurface.pan);
+    logger.log('Grid visible?', drawingSurface.layers.find(l => l.id === 'grid').visible);
+    return 'Debug info logged to logger.';
   };
   
   // Add force grid function
@@ -416,8 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Grid layer not found';
   };
   
-  console.log('Deck Builder initialized');
-  console.log('Available debug objects: store, drawingSurface, footprintLayer, uiControls');
+  logger.log('Deck Builder initialized');
+  logger.log('Available debug objects: store, drawingSurface, footprintLayer, uiControls');
 });
 
 // Helper functions

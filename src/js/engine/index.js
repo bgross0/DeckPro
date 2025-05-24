@@ -65,7 +65,7 @@ function computeStructure(payload) {
   });
   
   // Inner beam/ledger
-  console.log('Determining inner beam/ledger. Attachment:', input.attachment);
+  logger.log('Determining inner beam/ledger. Attachment:', input.attachment);
   
   if (input.attachment === 'ledger') {
     beams.push({
@@ -74,7 +74,7 @@ function computeStructure(payload) {
     });
   } else {
     // For freestanding (or any non-ledger), add inner beam
-    console.log('Creating inner beam for freestanding deck');
+    logger.log('Creating inner beam for freestanding deck');
     const innerBeam = selectBeam(beamSpan, joistSpan, input.species_grade, input.footing_type);
     const innerBeamData = {
       position: 'inner',
@@ -88,12 +88,12 @@ function computeStructure(payload) {
       segments: innerBeam.segments,
       spliced: innerBeam.spliced || false
     };
-    console.log('Inner beam data:', innerBeamData);
+    logger.log('Inner beam data:', innerBeamData);
     beams.push(innerBeamData);
   }
   
-  console.log('Total beams:', beams.length);
-  console.log('Beams:', beams);
+  logger.log('Total beams:', beams.length);
+  logger.log('Beams:', beams);
   
   // Generate posts with correct positions based on orientation
   // When joists span width (horizontal), beams run vertically along length, posts positioned across width

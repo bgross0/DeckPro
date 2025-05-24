@@ -6,7 +6,7 @@ const createStore = (initialState) => {
     getState: () => ({ ...state }),
     setState: (newState) => {
       state = { ...state, ...newState };
-      console.log('Store state updated:', state);
+      logger.log('Store state updated:', state);
       listeners.forEach(listener => listener(state));
     },
     subscribe: (listener) => {

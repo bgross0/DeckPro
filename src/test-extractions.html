@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Extracted Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .test-section { margin: 20px 0; }
+        #cost-summary { border: 1px solid #ddd; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive Test of Extracted Functionality</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Mock Elements for Testing</h2>
+        <canvas id="deck-canvas" width="400" height="300" style="border: 1px solid #000;"></canvas>
+        <div id="cost-summary"></div>
+        
+        <!-- Mock UI elements that verifyElements checks for -->
+        <button id="undo-btn">Undo</button>
+        <button id="redo-btn">Redo</button>
+        <button id="clear-canvas-btn">Clear Canvas</button>
+        <button id="rectangle-tool-btn">Rectangle Tool</button>
+        <button id="select-tool-btn">Select Tool</button>
+        <button id="generate-btn">Generate</button>
+        <button id="new-project-btn">New Project</button>
+        <button id="help-btn">Help</button>
+        <button id="toggle-sidebar-btn">Toggle Sidebar</button>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="js/utils/logger.js"></script>
+    <script src="js/utils/eventBus.js"></script>
+    <script src="data/materials.js"></script>
+    <script src="js/utils/footprintUtils.js"></script>
+    <script src="js/utils/materialCostUtils.js"></script>
+
+    <script>
+        // Mock drawing surface for testing
+        const mockDrawingSurface = {
+            toWorldCoords: (x, y) => ({ x: x, y: y }),
+            pixelsToFeet: (pixels) => pixels / 10, // Simple conversion
+            feetToPixels: (feet) => feet * 10
+        };
+
+        // Mock store for testing
+        const mockStore = {
+            state: {
+                engineOut: {
+                    material_takeoff: [
+                        { item: "2x8 Joist", qty: "10", totalCost: 150.00, category: "lumber" },
+                        { item: "LUS28 hanger", qty: "8", totalCost: 32.00, category: "hardware" },
+                        { item: "Concrete footing", qty: "4", totalCost: 80.00, category: "footings" }
+                    ]
+                }
+            },
+            getState: function() { return this.state; }
+        };
+
+        function runTests() {
+            const results = [];
+
+            // Test 1: FootprintUtils.verifyElements
+            try {
+                console.log("Testing FootprintUtils.verifyElements...");
+                FootprintUtils.verifyElements();
+                results.push({ name: "verifyElements", status: "pass", message: "Successfully verified UI elements" });
+            } catch (error) {
+                results.push({ name: "verifyElements", status: "fail", message: `Error: ${error.message}` });
+            }
+
+            // Test 2: FootprintUtils.createDefaultFootprint
+            try {
+                console.log("Testing FootprintUtils.createDefaultFootprint...");
+                const footprint = FootprintUtils.createDefaultFootprint(12, 16, mockDrawingSurface);
+                
+                if (footprint && footprint.width_ft === 12 && footprint.length_ft === 16 && footprint.origin) {
+                    results.push({ name: "createDefaultFootprint", status: "pass", message: `Created footprint: ${JSON.stringify(footprint)}` });
+                } else {
+                    results.push({ name: "createDefaultFootprint", status: "fail", message: `Invalid footprint: ${JSON.stringify(footprint)}` });
+                }
+            } catch (error) {
+                results.push({ name: "createDefaultFootprint", status: "fail", message: `Error: ${error.message}` });
+            }
+
+            // Test 3: MaterialCostUtils.updateCostSummary
+            try {
+                console.log("Testing MaterialCostUtils.updateCostSummary...");
+                MaterialCostUtils.updateCostSummary(mockStore);
+                
+                const summaryDiv = document.getElementById('cost-summary');
+                if (summaryDiv && summaryDiv.innerHTML.includes('Total Project Cost')) {
+                    results.push({ name: "updateCostSummary", status: "pass", message: "Cost summary updated successfully" });
+                } else {
+                    results.push({ name: "updateCostSummary", status: "fail", message: `Summary div content: ${summaryDiv ? summaryDiv.innerHTML : 'not found'}` });
+                }
+            } catch (error) {
+                results.push({ name: "updateCostSummary", status: "fail", message: `Error: ${error.message}` });
+            }
+
+            // Test 4: Check for global namespace pollution
+            try {
+                if (window.FootprintUtils && window.MaterialCostUtils) {
+                    results.push({ name: "globalNamespace", status: "pass", message: "Utilities properly exposed in global namespace" });
+                } else {
+                    results.push({ name: "globalNamespace", status: "fail", message: "Missing global utilities" });
+                }
+            } catch (error) {
+                results.push({ name: "globalNamespace", status: "fail", message: `Error: ${error.message}` });
+            }
+
+            // Test 5: Check logger integration
+            try {
+                logger.log("Test log message");
+                results.push({ name: "loggerIntegration", status: "pass", message: "Logger working correctly" });
+            } catch (error) {
+                results.push({ name: "loggerIntegration", status: "fail", message: `Logger error: ${error.message}` });
+            }
+
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('test-results');
+            container.innerHTML = '';
+
+            let passCount = 0;
+            let failCount = 0;
+
+            results.forEach(result => {
+                const div = document.createElement('div');
+                div.className = `test ${result.status}`;
+                div.innerHTML = `
+                    <strong>${result.name}</strong>: ${result.status.toUpperCase()}<br>
+                    ${result.message}
+                `;
+                container.appendChild(div);
+
+                if (result.status === 'pass') passCount++;
+                else failCount++;
+            });
+
+            // Summary
+            const summary = document.createElement('div');
+            summary.className = 'test-section';
+            summary.innerHTML = `
+                <h3>Test Summary</h3>
+                <p><strong>Passed:</strong> ${passCount}</p>
+                <p><strong>Failed:</strong> ${failCount}</p>
+                <p><strong>Total:</strong> ${results.length}</p>
+                <p><strong>Success Rate:</strong> ${((passCount / results.length) * 100).toFixed(1)}%</p>
+            `;
+            container.appendChild(summary);
+
+            console.log(`Test Summary: ${passCount}/${results.length} passed (${((passCount / results.length) * 100).toFixed(1)}%)`);
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

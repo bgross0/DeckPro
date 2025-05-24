@@ -7,7 +7,7 @@ const persistence = {
       localStorage.setItem(this.STORAGE_KEY, serialized);
       return true;
     } catch (error) {
-      console.error('Failed to save state:', error);
+      logger.error('Failed to save state:', error);
       return false;
     }
   },
@@ -18,7 +18,7 @@ const persistence = {
       if (!serialized) return null;
       return JSON.parse(serialized);
     } catch (error) {
-      console.error('Failed to load state:', error);
+      logger.error('Failed to load state:', error);
       return null;
     }
   },
@@ -28,7 +28,7 @@ const persistence = {
       localStorage.removeItem(this.STORAGE_KEY);
       return true;
     } catch (error) {
-      console.error('Failed to clear state:', error);
+      logger.error('Failed to clear state:', error);
       return false;
     }
   }

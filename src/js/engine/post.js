@@ -46,15 +46,15 @@ function generatePostList(beams, deckHeight, footingType, deckWidth, cantilever 
     const beamPosts = generatePostGrid(beam.span_ft, beam.post_spacing_ft);
     const postHeight = calculatePostHeight(deckHeight, footingType);
     
-    // Determine y position based on beam position
+    // Determine y position based on beam position and cantilever
     let yPosition = 0;
     if (beam.position === 'outer') {
-      // Outer beam position depends on cantilever
-      // For drop beams with cantilever, beam is inside the deck edge
-      // For no cantilever, beam is at the deck edge
+      // Outer beam is positioned at cantilever distance from deck edge
+      // For ledger attachment: beam at cantilever distance from house
+      // For freestanding: beam at cantilever distance from outer edge
       yPosition = deckWidth - cantilever;
     } else if (beam.position === 'inner' && beam.style !== 'ledger') {
-      // Inner beam for freestanding deck is at y=0
+      // Inner beam for freestanding deck at house side (y=0)
       yPosition = 0;
     }
     

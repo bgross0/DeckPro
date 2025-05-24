@@ -84,7 +84,7 @@ class FootprintLayer extends Layer {
   
   handleMouseDown(e) {
     if (!e || typeof e.clientX === 'undefined' || typeof e.clientY === 'undefined') {
-      console.error('Invalid mouse event:', e);
+      logger.error('Invalid mouse event:', e);
       return false;
     }
     
@@ -94,13 +94,13 @@ class FootprintLayer extends Layer {
     
     // Ensure valid canvas coordinates
     if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
-      console.warn('Mouse position out of canvas bounds:', mouseX, mouseY);
+      logger.warn('Mouse position out of canvas bounds:', mouseX, mouseY);
       return false;
     }
     
     const worldPos = this.surface.toWorldCoords(mouseX, mouseY);
     
-    console.log('FootprintLayer.handleMouseDown:', {
+    logger.log('FootprintLayer.handleMouseDown:', {
       tool: this.currentTool,
       mouseX, mouseY,
       worldPos,
@@ -155,7 +155,7 @@ class FootprintLayer extends Layer {
   
   handleMouseMove(e) {
     if (!e || typeof e.clientX === 'undefined' || typeof e.clientY === 'undefined') {
-      console.error('Invalid mouse event in handleMouseMove:', e);
+      logger.error('Invalid mouse event in handleMouseMove:', e);
       return;
     }
     
@@ -172,7 +172,7 @@ class FootprintLayer extends Layer {
     
     // Debug log for drawing
     if (this.isDrawing) {
-      console.log('Drawing:', { 
+      logger.log('Drawing:', { 
         isDrawing: this.isDrawing, 
         drawStart: this.drawStart, 
         footprint: this.footprint 
@@ -201,11 +201,11 @@ class FootprintLayer extends Layer {
         this.footprint.length_ft = this.surface.pixelsToFeet(height);
         
         // Update dimensions display without creating command
-        console.log('Emitting footprint:preview with:', this.footprint);
+        logger.log('Emitting footprint:preview with:', this.footprint);
         eventBus.emit('footprint:preview', this.footprint);
         this.surface.draw();
       } catch (error) {
-        console.error('Error updating footprint:', error);
+        logger.error('Error updating footprint:', error);
       }
     } else if (this.isDragging && this.dragStart && this.footprint) {
       // Moving existing rectangle
@@ -236,33 +236,33 @@ class FootprintLayer extends Layer {
   }
   
   handleMouseUp(e) {
-    console.log('handleMouseUp called:', e);
+    logger.log('handleMouseUp called:', e);
     
     if (this.isDrawing) {
-      console.log('Finishing drawing, footprint:', this.footprint);
+      logger.log('Finishing drawing, footprint:', this.footprint);
       this.isDrawing = false;
       this.drawStart = null;
       
       if (!this.footprint) {
-        console.warn('No footprint defined in handleMouseUp');
+        logger.warn('No footprint defined in handleMouseUp');
         return;
       }
       
       // Validate minimum size
       if (this.footprint.width_ft < 1 || this.footprint.length_ft < 1) {
-        console.log('Footprint too small, clearing');
+        logger.log('Footprint too small, clearing');
         this.footprint = null;
         eventBus.emit('footprint:change', null);
         eventBus.emit('footprint:preview', null);
       } else {
-        console.log('Emitting valid footprint change');
+        logger.log('Emitting valid footprint change');
         // Just emit the footprint change, don't generate structure
         eventBus.emit('footprint:change', this.footprint);
       }
     }
     
     if (this.isDragging && this.footprint) {
-      console.log('Finishing drag, footprint:', this.footprint);
+      logger.log('Finishing drag, footprint:', this.footprint);
       // Emit final position after dragging
       eventBus.emit('footprint:change', this.footprint);
     }
@@ -272,7 +272,7 @@ class FootprintLayer extends Layer {
   }
   
   setTool(tool) {
-    console.log('FootprintLayer.setTool:', tool, 'previous:', this.currentTool);
+    logger.log('FootprintLayer.setTool:', tool, 'previous:', this.currentTool);
     this.currentTool = tool;
     this.isSelected = false;
     

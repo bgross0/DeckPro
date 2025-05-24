@@ -5,7 +5,7 @@ window.UIControls = class UIControls {
     this.drawingSurface = drawingSurface;
     this.commandStack = commandStack;
     
-    console.log('UIControls initialized');
+    logger.log('UIControls initialized');
     
     // Ensure DOM is ready before setting up listeners
     if (document.readyState === 'loading') {
@@ -32,7 +32,7 @@ window.UIControls = class UIControls {
   
   // Cleanup all registered event listeners
   cleanupEventListeners() {
-    console.log(`Cleaning up ${this.listeners.length} event listeners`);
+    logger.log(`Cleaning up ${this.listeners.length} event listeners`);
     this.listeners.forEach(({ element, eventType, handler }) => {
       element.removeEventListener(eventType, handler);
     });
@@ -40,8 +40,8 @@ window.UIControls = class UIControls {
   }
   
   setupEventListeners() {
-    console.log('Setting up event listeners');
-    this.verifyElements();
+    logger.log('Setting up event listeners');
+    FootprintUtils.verifyElements();
     this.setupHeaderControls();
     this.setupMainControls();
     this.setupToolButtons();
@@ -56,36 +56,13 @@ window.UIControls = class UIControls {
     window.addEventListener('beforeunload', () => this.cleanupEventListeners());
   }
   
-  verifyElements() {
-    // Verify elements exist
-    const elements = {
-      'undo-btn': 'Undo',
-      'redo-btn': 'Redo',
-      'clear-canvas-btn': 'Clear Canvas',
-      'rectangle-tool-btn': 'Rectangle Tool',
-      'select-tool-btn': 'Select Tool',
-      'generate-btn': 'Generate',
-      'new-project-btn': 'New Project',
-      'help-btn': 'Help',
-      'toggle-sidebar-btn': 'Toggle Sidebar'
-    };
-    
-    for (const [id, name] of Object.entries(elements)) {
-      const el = document.getElementById(id);
-      if (!el) {
-        console.error(`${name} button not found: #${id}`);
-      } else {
-        console.log(`${name} button found: #${id}`);
-      }
-    }
-  }
   
   setupHeaderControls() {
     // Header buttons
     const newProjectBtn = document.getElementById('new-project-btn');
     if (newProjectBtn) {
       const handler = () => {
-        console.log('New project clicked');
+        logger.log('New project clicked');
         if (confirm('Start a new project? All unsaved changes will be lost.')) {
           this.clearCanvas();
         }
@@ -96,7 +73,7 @@ window.UIControls = class UIControls {
     const helpBtn = document.getElementById('help-btn');
     if (helpBtn) {
       const handler = () => {
-        console.log('Help clicked');
+        logger.log('Help clicked');
         // Simple help dialog
         alert('DeckPro Designer Help:\n\n' +
               '- Use the Rectangle tool to draw your deck outline\n' +
@@ -111,7 +88,7 @@ window.UIControls = class UIControls {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
     if (toggleSidebarBtn) {
       const handler = () => {
-        console.log('Toggle sidebar clicked');
+        logger.log('Toggle sidebar clicked');
         const sidebar = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         if (sidebar) {
@@ -146,7 +123,7 @@ window.UIControls = class UIControls {
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
       const handler = () => {
-        console.log('Undo clicked');
+        logger.log('Undo clicked');
         this.commandStack.undo();
         this.updateUIFromState();
       };
@@ -156,7 +133,7 @@ window.UIControls = class UIControls {
     const redoBtn = document.getElementById('redo-btn');
     if (redoBtn) {
       const handler = () => {
-        console.log('Redo clicked');
+        logger.log('Redo clicked');
         this.commandStack.redo();
         this.updateUIFromState();
       };
@@ -167,7 +144,7 @@ window.UIControls = class UIControls {
     const clearBtn = document.getElementById('clear-canvas-btn');
     if (clearBtn) {
       const handler = () => {
-        console.log('Clear canvas clicked');
+        logger.log('Clear canvas clicked');
         if (confirm('Clear all deck geometry? This cannot be undone.')) {
           this.clearCanvas();
         }
@@ -181,7 +158,7 @@ window.UIControls = class UIControls {
     const rectangleBtn = document.getElementById('rectangle-tool-btn');
     if (rectangleBtn) {
       const handler = () => {
-        console.log('Rectangle tool clicked');
+        logger.log('Rectangle tool clicked');
         this.setActiveTool('rectangle');
       };
       this.addListener(rectangleBtn, 'click', handler);
@@ -190,7 +167,7 @@ window.UIControls = class UIControls {
     const selectBtn = document.getElementById('select-tool-btn');
     if (selectBtn) {
       const handler = () => {
-        console.log('Select tool clicked');
+        logger.log('Select tool clicked');
         this.setActiveTool('select');
       };
       this.addListener(selectBtn, 'click', handler);
@@ -200,12 +177,12 @@ window.UIControls = class UIControls {
     const generateBtn = document.getElementById('generate-btn');
     if (generateBtn) {
       const handler = () => {
-        console.log('Generate button clicked');
+        logger.log('Generate button clicked');
         this.generateStructure();
       };
       this.addListener(generateBtn, 'click', handler);
     } else {
-      console.error('Generate button not found!');
+      logger.error('Generate button not found!');
     }
   }
   
@@ -308,8 +285,8 @@ window.UIControls = class UIControls {
             this.executeCommand('setFootprint', { footprint: updatedFootprint });
           } else {
             // Create a new footprint with default position
-            const defaultPosition = this.createDefaultFootprint(width, 
-              parseFloat(document.getElementById('length-ft').value) || 12);
+            const defaultPosition = FootprintUtils.createDefaultFootprint(width, 
+              parseFloat(document.getElementById('length-ft').value) || 12, this.drawingSurface);
             this.executeCommand('setFootprint', { footprint: defaultPosition });
           }
         }
@@ -329,8 +306,8 @@ window.UIControls = class UIControls {
             this.executeCommand('setFootprint', { footprint: updatedFootprint });
           } else {
             // Create a new footprint with default position
-            const defaultPosition = this.createDefaultFootprint(
-              parseFloat(document.getElementById('width-ft').value) || 12, length);
+            const defaultPosition = FootprintUtils.createDefaultFootprint(
+              parseFloat(document.getElementById('width-ft').value) || 12, length, this.drawingSurface);
             this.executeCommand('setFootprint', { footprint: defaultPosition });
           }
         }
@@ -356,7 +333,7 @@ window.UIControls = class UIControls {
     if (attachmentEl) {
       const handler = (e) => {
         this.executeCommand('setContext', { attachment: e.target.value });
-        this.updateUIVisibility();
+        UIVisibilityUtils.updateUIVisibility(this.store.getState());
       };
       this.addListener(attachmentEl, 'change', handler);
     }
@@ -420,57 +397,23 @@ window.UIControls = class UIControls {
   }
   
   setupTabSwitching() {
-    // Tab switching
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-      const handler = () => {
-        const targetTab = button.dataset.tab;
-        
-        // Update button states
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        
-        // Update panel visibility
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-          panel.classList.remove('active');
-        });
-        document.getElementById(`${targetTab}-tab`).classList.add('active');
-      };
-      this.addListener(button, 'click', handler);
+    TabSwitchingUtils.setupTabSwitching((element, eventType, handler) => {
+      this.addListener(element, eventType, handler);
     });
     
     // Pricing modal controls
-    const pricingBtn = document.getElementById('pricing-settings-btn');
-    const pricingModal = document.getElementById('pricing-modal');
-    const pricingClose = document.getElementById('pricing-modal-close');
-    
-    if (pricingBtn && pricingModal) {
-      const openHandler = () => {
-        pricingModal.style.display = 'flex';
-      };
-      this.addListener(pricingBtn, 'click', openHandler);
-    }
-    
-    if (pricingClose && pricingModal) {
-      const closeHandler = () => {
-        pricingModal.style.display = 'none';
-      };
-      this.addListener(pricingClose, 'click', closeHandler);
-    }
-    
-    // Close modal when clicking backdrop
-    if (pricingModal) {
-      const backdropHandler = (e) => {
-        if (e.target === pricingModal) {
-          pricingModal.style.display = 'none';
-        }
-      };
-      this.addListener(pricingModal, 'click', backdropHandler);
-    }
+    ModalUtils.setupModal(
+      'pricing-modal',
+      'pricing-settings-btn', 
+      'pricing-modal-close',
+      (element, eventType, handler) => {
+        this.addListener(element, eventType, handler);
+      }
+    );
   }
   
   executeCommand(type, data) {
-    console.log('Executing command:', type, data);
+    logger.log('Executing command:', type, data);
     const command = this.createCommand(type, data);
     this.commandStack.execute(command);
     this.updateUIFromState();
@@ -649,7 +592,7 @@ window.UIControls = class UIControls {
   }
   
   updateUIFromState() {
-    console.log('Updating UI from state');
+    logger.log('Updating UI from state');
     const state = this.store.getState();
     
     // Update footprint inputs
@@ -702,19 +645,7 @@ window.UIControls = class UIControls {
       }
     }
     
-    this.updateUIVisibility();
-  }
-  
-  updateUIVisibility() {
-    const state = this.store.getState();
-    
-    // Show/hide inner beam style based on attachment
-    const innerBeamLabel = document.getElementById('beam-style-inner-label');
-    if (state.context.attachment === 'free') {
-      innerBeamLabel.style.display = 'block';
-    } else {
-      innerBeamLabel.style.display = 'none';
-    }
+    UIVisibilityUtils.updateUIVisibility(this.store.getState());
   }
   
   setActiveTool(tool) {
@@ -735,9 +666,9 @@ window.UIControls = class UIControls {
   }
   
   generateStructure() {
-    console.log('Generate Structure clicked');
+    logger.log('Generate Structure clicked');
     const state = this.store.getState();
-    console.log('Current state:', state);
+    logger.log('Current state:', state);
     
     if (!state.footprint || state.footprint.width_ft < 1 || state.footprint.length_ft < 1) {
       alert('Please draw a footprint first');
@@ -750,7 +681,7 @@ window.UIControls = class UIControls {
       length_ft: state.footprint.length_ft
     };
     
-    console.log('Computing with payload:', payload);
+    logger.log('Computing with payload:', payload);
     eventBus.emit('canvas:compute', { payload });
   }
   
@@ -808,7 +739,7 @@ window.UIControls = class UIControls {
         const handler = (e) => {
           const value = parseFloat(e.target.value) || 0;
           materials.lumber[size].costPerFoot = value;
-          this.updateCostSummary();
+          MaterialCostUtils.updateCostSummary(this.store);
         };
         this.addListener(input, 'change', handler);
       }
@@ -834,7 +765,7 @@ window.UIControls = class UIControls {
               materials.simpsonZmax[config.type][key].cost = value;
             }
           });
-          this.updateCostSummary();
+          MaterialCostUtils.updateCostSummary(this.store);
         };
         this.addListener(input, 'change', handler);
       }
@@ -853,7 +784,7 @@ window.UIControls = class UIControls {
         const handler = (e) => {
           const value = parseFloat(e.target.value) || 0;
           materials.simpsonZmax.fasteners[config.type][config.key][config.property] = value;
-          this.updateCostSummary();
+          MaterialCostUtils.updateCostSummary(this.store);
         };
         this.addListener(input, 'change', handler);
       }
@@ -867,134 +798,11 @@ window.UIControls = class UIControls {
         const handler = (e) => {
           const value = parseFloat(e.target.value) || 0;
           materials.footingCosts[type] = value;
-          this.updateCostSummary();
+          MaterialCostUtils.updateCostSummary(this.store);
         };
         this.addListener(input, 'change', handler);
       }
     });
   }
 
-  /**
-   * Creates a footprint with default positioning centered in the visible canvas area
-   * @param {number} width_ft - Width in feet
-   * @param {number} length_ft - Length in feet
-   * @returns {Object} Footprint object with origin and dimensions
-   */
-  createDefaultFootprint(width_ft, length_ft) {
-    // Set default dimensions if not provided
-    width_ft = width_ft || 12;
-    length_ft = length_ft || 12;
-    
-    // Get the canvas to calculate a good default position
-    const canvas = document.getElementById('deck-canvas');
-    if (!canvas) return null;
-    
-    const rect = canvas.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    
-    // Convert to world coordinates
-    const worldPos = this.drawingSurface.toWorldCoords(centerX, centerY);
-    const surface = this.drawingSurface;
-    
-    // Calculate origin to center the footprint
-    const origin = {
-      x: surface.pixelsToFeet(worldPos.x) - (width_ft / 2),
-      y: surface.pixelsToFeet(worldPos.y) - (length_ft / 2)
-    };
-    
-    return {
-      origin: origin,
-      width_ft: width_ft,
-      length_ft: length_ft
-    };
-  }
-
-  updateCostSummary() {
-    try {
-      const state = this.store.getState();
-      if (!state.engineOut || !state.engineOut.material_takeoff) {
-        return;
-      }
-
-      // Enhanced cost calculation with hardware categories
-      let totalCost = 0;
-      const breakdown = {
-        lumber: 0,
-        hardware: 0,
-        fasteners: 0,
-        footings: 0
-      };
-
-      state.engineOut.material_takeoff.forEach(item => {
-        let itemCost = 0;
-        
-        // Use totalCost from item if available (new enhanced format)
-        if (item.totalCost) {
-          itemCost = item.totalCost;
-          const category = item.category || 'lumber';
-          if (breakdown[category] !== undefined) {
-            breakdown[category] += itemCost;
-          } else {
-            breakdown.lumber += itemCost; // Default fallback
-          }
-        } else {
-          // Legacy cost calculation for backward compatibility
-          const amount = parseInt(item.qty) || 0;
-          
-          if (item.item.includes('2x') || item.item.includes('6x6')) {
-            // Lumber - extract size
-            const sizeMatch = item.item.match(/([26])x(\d+)/);
-            if (sizeMatch) {
-              const size = sizeMatch[0];
-              if (materials.lumber[size]) {
-                itemCost = amount * materials.lumber[size].costPerFoot;
-                breakdown.lumber += itemCost;
-              }
-            }
-          } else if (item.item.includes('hanger')) {
-            itemCost = amount * materials.hardware.LUS2x8.cost;
-            breakdown.hardware += itemCost;
-          } else if (item.item.includes('post base')) {
-            itemCost = amount * materials.hardware.PB66.cost;
-            breakdown.hardware += itemCost;
-          } else if (item.item.includes('pile') || item.item.includes('footing')) {
-            const footingType = state.context.footing_type;
-            itemCost = amount * materials.footingCosts[footingType];
-            breakdown.footings += itemCost;
-          }
-        }
-        
-        totalCost += itemCost;
-      });
-
-      // Update the cost summary display with enhanced breakdown
-      const summaryDiv = document.getElementById('cost-summary');
-      if (summaryDiv) {
-        let html = '<div class="cost-breakdown">';
-        html += `<p><strong>Total Project Cost:</strong> $${totalCost.toFixed(2)}</p>`;
-        html += '<p><strong>Cost Breakdown:</strong></p>';
-        html += '<ul>';
-        
-        Object.entries(breakdown).forEach(([category, cost]) => {
-          if (cost > 0) {
-            const percentage = ((cost / totalCost) * 100).toFixed(1);
-            html += `<li><strong>${category.charAt(0).toUpperCase() + category.slice(1)}:</strong> $${cost.toFixed(2)} (${percentage}%)</li>`;
-          }
-        });
-        
-        html += '</ul>';
-        
-        // Add hardware details if available
-        if (breakdown.hardware > 0 || breakdown.fasteners > 0) {
-          html += '<p style="margin-top: 10px; font-size: 12px; color: #666; font-style: italic;">Hardware includes Simpson ZMAX galvanized connectors and structural fasteners.</p>';
-        }
-        
-        html += '</div>';
-        summaryDiv.innerHTML = html;
-      }
-    } catch (error) {
-      console.error('Error updating cost summary:', error);
-    }
-  }
 }

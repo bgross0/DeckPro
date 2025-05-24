@@ -12,7 +12,7 @@ class DrawingSurface {
     this.setupEventListeners();
     
     // Make sure we're properly zoomed to see the grid
-    console.log('Initial drawing surface setup with zoom:', this.zoom);
+    logger.log('Initial drawing surface setup with zoom:', this.zoom);
   }
   
   setupCanvas() {
@@ -22,7 +22,7 @@ class DrawingSurface {
     
     // Ensure we have valid dimensions
     if (rect.width === 0 || rect.height === 0) {
-      console.warn('Canvas has zero dimensions, using fallback values');
+      logger.warn('Canvas has zero dimensions, using fallback values');
       this.canvas.width = 800 * dpr;
       this.canvas.height = 600 * dpr;
       this.canvas.style.width = '800px';
@@ -41,7 +41,7 @@ class DrawingSurface {
     this.pan.x = this.canvas.width / (2 * dpr);
     this.pan.y = this.canvas.height / (2 * dpr);
     
-    console.log('Canvas setup complete:', {
+    logger.log('Canvas setup complete:', {
       width: this.canvas.width,
       height: this.canvas.height,
       dpr: dpr,
@@ -273,7 +273,7 @@ class DrawingSurface {
   
   setDrawingMode(enabled) {
     this.isDrawingMode = enabled;
-    console.log('Drawing mode set to:', enabled);
+    logger.log('Drawing mode set to:', enabled);
     
     // Add visual feedback for drawing mode
     if (enabled) {
