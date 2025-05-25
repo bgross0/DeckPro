@@ -115,499 +115,178 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize command stack
   const commandStack = new CommandStack(20);
   
+  // Initialize structure renderer
+  const structureRenderer = new StructureRenderer(store);
+  
   // Initialize UI controls
-  logger.log('UIControls available:', typeof UIControls !== 'undefined');
-  if (typeof UIControls === 'undefined') {
-    logger.error('UIControls class is not defined! Check that controls.js is loaded properly.');
-    alert('Error: UIControls is not defined. The application may not work correctly.');
-  }
   const uiControls = new UIControls(store, drawingSurface, commandStack);
-  window.uiControls = uiControls; // Make globally accessible
+  window.uiControls = uiControls; // Make available globally for cleanup
+  
+  // Set initial tool after UI is ready
+  setTimeout(() => {
+    uiControls.setActiveTool('rectangle');
+    logger.log('Initial tool set to rectangle');
+  }, 100);
   
   // Initialize export manager
-  const exportManager = new ExportManager(drawingSurface, store);
+  const exportManager = new ExportManager(drawingSurface);
+  window.exportManager = exportManager; // Make available globally
   
-  // Set initial tool
-  uiControls.setActiveTool('rectangle');
+  // Set up event handlers
+  setupEventHandlers(store, drawingSurface, commandStack);
   
-  // Setup canvas event handling for drawing
-  canvas.addEventListener('mousedown', (e) => {
-    // Only handle left click for drawing
-    if (e.button === 0) {
-      logger.log('MouseDown event:', {
-        tool: footprintLayer.currentTool,
-        button: e.button,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        canvasRect: canvas.getBoundingClientRect()
-      });
-      
-      // Ensure mouse events are properly handled
-      e.stopPropagation();
-      
-      // Force the drawing to start (debug)
-      if (footprintLayer.currentTool === 'rectangle') {
-        // Make sure the canvas has focus
-        canvas.focus();
-        
-        // Try to handle the mouse down event
-        try {
-          const handled = footprintLayer.handleMouseDown(e);
-          logger.log('MouseDown handled:', handled);
-        } catch (error) {
-          logger.error('Error in handleMouseDown:', error);
-        }
-      }
+  // Initialize generate button state
+  setTimeout(() => {
+    if (window.shadcnComponents && window.shadcnComponents.updateGenerateButton) {
+      window.shadcnComponents.updateGenerateButton(false, 'Draw deck footprint first');
     }
-  });
+  }, 200);
   
-  canvas.addEventListener('mousemove', (e) => {
-    try {
-      footprintLayer.handleMouseMove(e);
-    } catch (error) {
-      logger.error('Error in handleMouseMove:', error);
-    }
-  });
-  
-  canvas.addEventListener('mouseup', (e) => {
-    if (e.button === 0) {
-      logger.log('MouseUp');
-      try {
-        footprintLayer.handleMouseUp(e);
-      } catch (error) {
-        logger.error('Error in handleMouseUp:', error);
-      }
-    }
-  });
-  
-  // Touch events for drawing
-  canvas.addEventListener('touchstart', (e) => {
-    // We're supporting drawing with one finger when rectangle tool is active
-    if (e.touches.length === 1 && footprintLayer.currentTool === 'rectangle') {
-      // Enable drawing mode to prevent canvas panning
-      drawingSurface.setDrawingMode(true);
-      
-      const touch = e.touches[0];
-      const simulatedEvent = {
-        button: 0, // Simulate left mouse button
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        preventDefault: function() { e.preventDefault(); }
-      };
-      logger.log('TouchStart: simulating mousedown, drawing mode enabled');
-      footprintLayer.handleMouseDown(simulatedEvent);
-      e.preventDefault();
-    }
-  });
-  
-  canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 1 && drawingSurface.isDrawingMode) {
-      const touch = e.touches[0];
-      const simulatedEvent = {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        preventDefault: function() { e.preventDefault(); }
-      };
-      footprintLayer.handleMouseMove(simulatedEvent);
-      e.preventDefault(); // Prevent scrolling while drawing
-    }
-  });
-  
-  canvas.addEventListener('touchend', (e) => {
-    if (drawingSurface.isDrawingMode) {
-      const simulatedEvent = {
-        button: 0, // Simulate left mouse button
-        preventDefault: function() { e.preventDefault(); }
-      };
-      logger.log('TouchEnd: simulating mouseup, disabling drawing mode');
-      footprintLayer.handleMouseUp(simulatedEvent);
-      
-      // Disable drawing mode after drawing is complete
-      drawingSurface.setDrawingMode(false);
-      e.preventDefault();
-    }
-  });
-  
-  // Load saved state if available
-  const savedState = persistence.load();
-  if (savedState) {
-    store.setState(savedState);
-  }
-  
-  // Set up event subscriptions
-  store.subscribe((state) => {
-    logger.log('Store subscription - updating layers with state:', state);
-    
-    // Update layers with new state
-    footprintLayer.setFootprint(state.footprint);
-    dimensionLayer.setFootprint(state.footprint);
-    
-    if (state.engineOut) {
-      logger.log('Updating structure layers with engine output:', state.engineOut);
-      joistLayer.setJoists(state.engineOut.joists);
-      joistLayer.setFootprint(state.footprint);
-      
-      beamLayer.setBeams(state.engineOut.beams);
-      beamLayer.setPosts(state.engineOut.posts);
-      beamLayer.setFootprint(state.footprint);
-      beamLayer.setCantilever(state.engineOut.joists.cantilever_ft);
-      beamLayer.setJoistOrientation(state.engineOut.joists.orientation);
-      
-      // Update BOM table
-      updateBOMTable(state.engineOut.material_takeoff);
-      
-      // Update framing specs
-      updateFramingSpecs(state.engineOut, state.context);
-      
-      // Update cost summary  
-      if (window.MaterialCostUtils) {
-        window.MaterialCostUtils.updateCostSummary(store);
-      }
-      
-      // Show warnings if any
-      if (state.engineOut.compliance.warnings.length > 0) {
-        showWarnings(state.engineOut.compliance.warnings);
-      } else {
-        hideWarnings();
-      }
-    } else {
-      // Clear structure layers if no engine output
-      joistLayer.setJoists(null);
-      beamLayer.setBeams(null);
-      beamLayer.setPosts(null);
-      updateBOMTable(null);
-      updateFramingSpecs(null, null);
-      hideWarnings();
-    }
-    
-    // Save state
-    persistence.save(state);
-    
-    // Redraw
-    drawingSurface.draw();
-  });
-  
-  // Handle canvas:compute events
-  let computeTimer = null;
-  eventBus.subscribe('canvas:compute', ({ payload }) => {
-    logger.log('canvas:compute event received with payload:', payload);
-    clearTimeout(computeTimer);
-    computeTimer = setTimeout(() => {
-      try {
-        logger.log('Computing structure...');
-        const result = computeStructure(payload);
-        logger.log('Structure computed:', result);
-        const state = store.getState();
-        store.setState({
-          ...state,
-          engineOut: result
-        });
-      } catch (error) {
-        logger.error('Computation error:', error);
-        if (error.code === 'SPAN_EXCEEDED' || error.code === 'INVALID_INPUT') {
-          showWarnings([error.message]);
-        } else {
-          alert('Error computing structure: ' + error.message);
-        }
-      }
-    }, 250);
-  });
-  
-  // Handle footprint events
-  eventBus.subscribe('footprint:change', (footprint) => {
-    if (footprint) {
-      // Use commands for undoable changes
-      uiControls.executeCommand('setFootprint', { footprint });
-    } else {
-      // Clear footprint
-      uiControls.executeCommand('clearFootprint', {});
-    }
-  });
-  
-  // Handle footprint preview (no command creation)
-  eventBus.subscribe('footprint:preview', (footprint) => {
-    if (footprint) {
-      // Update dimensions display only
-      document.getElementById('width-ft').value = footprint.width_ft.toFixed(2);
-      document.getElementById('length-ft').value = footprint.length_ft.toFixed(2);
-      
-      // Update dimensions layer for visual feedback
-      dimensionLayer.setFootprint(footprint);
-      
-      // Update footprint layer (for visual preview)
-      footprintLayer.setFootprint(footprint);
-    } else {
-      // Clear dimensions when footprint is cleared
-      document.getElementById('width-ft').value = '';
-      document.getElementById('length-ft').value = '';
-      dimensionLayer.setFootprint(null);
-      footprintLayer.setFootprint(null);
-    }
-  });
-  
-  // Handle canvas:ready event
-  eventBus.emit('canvas:ready');
-  
-  // Update initial UI state
-  uiControls.updateUIFromState();
-  
-  // Ensure the grid is visible by setting default values
+  // Force grid visibility before initial render
   const gridLayerRef = drawingSurface.layers.find(l => l.id === 'grid');
   if (gridLayerRef) {
     gridLayerRef.visible = true;
-    gridLayerRef.snap = true;
+    gridLayerRef.spacing_in = 6;
+    logger.log('Grid layer forced visible:', gridLayerRef.visible, 'spacing:', gridLayerRef.spacing_in);
     
-    // Ensure spacing is set to a reasonable value
-    gridLayerRef.spacing_in = gridLayerRef.spacing_in || 6;
+    // Sync the checkbox
+    const gridCheckbox = document.getElementById('grid-visible');
+    if (gridCheckbox) {
+      gridCheckbox.checked = true;
+    }
   }
   
-  // Initial draw with extra logging
-  logger.log('Initial draw with zoom:', drawingSurface.zoom);
+  // Initial render
   drawingSurface.draw();
   
-  // Force a redraw after a short delay to handle any initialization issues
+  // Additional forced redraws to ensure grid appears
   setTimeout(() => {
-    logger.log('Forced redraw after initialization');
-    // Explicitly show the grid and draw
-    const gridLayerAfterInit = drawingSurface.layers.find(l => l.id === 'grid');
-    if (gridLayerAfterInit) {
-      gridLayerAfterInit.visible = true;
-      document.getElementById('grid-visible').checked = true;
-    }
+    logger.log('First delayed redraw');
     drawingSurface.draw();
     
-    // Set another timeout for a second redraw, in case the first one doesn't work
     setTimeout(() => {
-      logger.log('Second forced redraw');
+      logger.log('Second delayed redraw');
       drawingSurface.draw();
-    }, 1000);
-  }, 500);
+    }, 100);
+  }, 50);
   
-  // Expose objects for debugging
-  window.store = store;
-  window.drawingSurface = drawingSurface;
-  window.footprintLayer = footprintLayer;
-  window.uiControls = uiControls;
-  
-  // Add debug tool function
-  window.debugState = function() {
-    logger.log('=== DEBUG STATE ===');
-    logger.log('Current tool:', footprintLayer.currentTool);
-    logger.log('Drawing?', footprintLayer.isDrawing);
-    logger.log('Current footprint:', footprintLayer.footprint);
-    logger.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-    logger.log('Canvas rect:', canvas.getBoundingClientRect());
-    logger.log('Canvas zoom:', drawingSurface.zoom);
-    logger.log('Pan position:', drawingSurface.pan);
-    logger.log('Grid visible?', drawingSurface.layers.find(l => l.id === 'grid').visible);
-    return 'Debug info logged to logger.';
-  };
-  
-  // Add force grid function
-  window.showGrid = function() {
-    const grid = drawingSurface.layers.find(l => l.id === 'grid');
-    if (grid) {
-      grid.visible = true;
-      grid.spacing_in = 6;
-      drawingSurface.zoom = 1.2;
-      drawingSurface.draw();
-      return 'Grid visibility forced';
-    }
-    return 'Grid layer not found';
-  };
-  
-  logger.log('Deck Builder initialized');
-  logger.log('Available debug objects: store, drawingSurface, footprintLayer, uiControls');
+  logger.log('Application initialized successfully');
 });
 
-// Helper functions
-function updateBOMTable(materialTakeoff) {
-  const tbody = document.querySelector('#bom-table tbody');
-  tbody.innerHTML = '';
+function setupEventHandlers(store, drawingSurface, commandStack) {
+  // Handle footprint changes  
+  eventBus.subscribe('footprint:change', (footprint) => {
+    logger.log('Footprint changed:', footprint);
+    
+    // **CRITICAL**: Update the store state so generateStructure can access it
+    store.setState({ footprint: footprint });
+    logger.log('Store updated with footprint:', store.getState().footprint);
+    
+    // Update form inputs to reflect drawn footprint
+    if (footprint) {
+      const widthInput = document.getElementById('width-ft');
+      const lengthInput = document.getElementById('length-ft');
+      if (widthInput) widthInput.value = footprint.width_ft.toFixed(1);
+      if (lengthInput) lengthInput.value = footprint.length_ft.toFixed(1);
+    }
+    
+    // Update footprint layer
+    const footprintLayer = drawingSurface.layers.find(l => l.id === 'footprint');
+    if (footprintLayer) {
+      footprintLayer.setFootprint(footprint);
+    }
+    
+    // Update dimension layer
+    const dimensionLayer = drawingSurface.layers.find(l => l.id === 'dimensions');
+    if (dimensionLayer) {
+      dimensionLayer.setFootprint(footprint);
+    }
+    
+    // Update generate button state
+    const hasValidFootprint = footprint && footprint.width_ft >= 1 && footprint.length_ft >= 1;
+    if (window.shadcnComponents && window.shadcnComponents.updateGenerateButton) {
+      window.shadcnComponents.updateGenerateButton(
+        hasValidFootprint, 
+        hasValidFootprint ? 'Generate Structure' : 'Draw deck footprint first'
+      );
+    }
+    
+    drawingSurface.draw();
+  });
   
-  if (!materialTakeoff || materialTakeoff.length === 0) {
-    const row = tbody.insertRow();
-    const cell = row.insertCell(0);
-    cell.colSpan = 3; // Updated for new cost column
-    cell.textContent = 'No materials calculated';
-    cell.style.textAlign = 'center';
-    cell.style.fontStyle = 'italic';
-    return;
-  }
+  // Handle footprint preview during drawing
+  eventBus.subscribe('footprint:preview', (footprint) => {
+    logger.log('Footprint preview:', footprint);
+    
+    // Update dimension layer for real-time display
+    const dimensionLayer = drawingSurface.layers.find(l => l.id === 'dimensions');
+    if (dimensionLayer) {
+      dimensionLayer.setFootprint(footprint);
+    }
+    
+    // Don't update store state or form inputs during preview - only visual feedback
+    drawingSurface.draw();
+  });
   
-  // Group items by category for better organization
-  const groupedItems = {
-    lumber: [],
-    hardware: [],
-    fasteners: [],
-    other: []
-  };
+  // Handle context changes
+  eventBus.subscribe('context:change', (context) => {
+    logger.log('Context changed:', context);
+    UIVisibilityUtils.updateUIVisibility(store.getState());
+  });
   
-  materialTakeoff.forEach(item => {
-    const category = item.category || 'lumber';
-    if (groupedItems[category]) {
-      groupedItems[category].push(item);
-    } else {
-      groupedItems.other.push(item);
+  // Handle clear canvas
+  eventBus.subscribe('clear-canvas', () => {
+    logger.log('Clearing all layers');
+    drawingSurface.layers.forEach(layer => {
+      if (layer.clear) {
+        layer.clear();
+      }
+    });
+    drawingSurface.draw();
+  });
+  
+  // Handle canvas export
+  eventBus.subscribe('canvas:export', (data) => {
+    logger.log('Exporting canvas as:', data.format);
+    const exportManager = window.exportManager;
+    if (exportManager) {
+      if (data.format === 'png') {
+        exportManager.exportPNG();
+      } else if (data.format === 'csv') {
+        exportManager.exportCSV(store.getState());
+      }
     }
   });
   
-  // Add section headers and items
-  Object.entries(groupedItems).forEach(([category, items]) => {
-    if (items.length === 0) return;
+  // Handle structure generation results
+  eventBus.subscribe('structure:generated', (engineOut) => {
+    logger.log('Structure generated, updating layers');
     
-    // Add category header
-    const headerRow = tbody.insertRow();
-    headerRow.style.backgroundColor = '#f0f0f0';
-    headerRow.style.fontWeight = 'bold';
-    const headerCell = headerRow.insertCell(0);
-    headerCell.colSpan = 3;
-    headerCell.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+    // Update joist layer
+    const joistLayer = drawingSurface.layers.find(l => l.id === 'joists');
+    if (joistLayer && engineOut.joists) {
+      joistLayer.setJoists(engineOut.joists);
+    }
     
-    // Add items in category
-    items.forEach(item => {
-      const row = tbody.insertRow();
-      row.insertCell(0).textContent = item.item;
-      row.insertCell(1).textContent = item.qty;
-      
-      // Add cost cell if available
-      const costCell = row.insertCell(2);
-      if (item.totalCost) {
-        costCell.textContent = `$${item.totalCost.toFixed(2)}`;
-        costCell.style.textAlign = 'right';
-      } else {
-        costCell.textContent = '-';
-        costCell.style.textAlign = 'center';
-      }
-    });
+    // Update beam layer  
+    const beamLayer = drawingSurface.layers.find(l => l.id === 'beams');
+    if (beamLayer && engineOut.beams) {
+      beamLayer.setBeams(engineOut.beams);
+    }
+    
+    // Update dimension layer
+    const dimensionLayer = drawingSurface.layers.find(l => l.id === 'dimensions');
+    if (dimensionLayer) {
+      dimensionLayer.setDimensions(engineOut);
+    }
+    
+    // Redraw canvas
+    drawingSurface.draw();
   });
-}
-
-// Make updateBOMTable globally accessible
-window.updateBOMTable = updateBOMTable;
-
-function showWarnings(warnings) {
-  const banner = document.getElementById('warning-banner');
-  banner.textContent = warnings.join('; ');
-  banner.style.display = 'block';
-}
-
-function hideWarnings() {
-  const banner = document.getElementById('warning-banner');
-  banner.style.display = 'none';
-}
-
-/**
- * Converts decimal feet to feet and inches format
- * @param {number} decimalFeet - Measurement in decimal feet
- * @returns {string} - Formatted as X'-Y" where X is feet and Y is inches
- */
-window.formatFeetInches = function(decimalFeet) {
-  // Handle null or undefined
-  if (decimalFeet === null || decimalFeet === undefined) {
-    return "0'-0\"";
-  }
   
-  // Get the whole feet part
-  const feet = Math.floor(decimalFeet);
-  
-  // Calculate inches (rounded to nearest whole inch)
-  const inches = Math.round((decimalFeet - feet) * 12);
-  
-  // Handle case where inches rounds up to 12
-  if (inches === 12) {
-    return `${feet + 1}'-0"`;
-  }
-  
-  return `${feet}'-${inches}"`;
-}
-
-function updateFramingSpecs(engineOut, context) {
-  const specsDiv = document.getElementById('framing-specs');
-  
-  if (!engineOut) {
-    specsDiv.innerHTML = '<p class="help-text">Generate structure to see framing specifications</p>';
-    return;
-  }
-  
-  // Build the specs HTML
-  let html = '<div class="specs-content">';
-  
-  // Joists
-  if (engineOut.joists) {
-    html += '<div class="spec-section">';
-    html += '<h4>Joists</h4>';
-    html += `<p><strong>Size:</strong> ${engineOut.joists.size}</p>`;
-    html += `<p><strong>Spacing:</strong> ${engineOut.joists.spacing_in}" O.C.</p>`;
-    if (engineOut.joists.cantilever_ft > 0) {
-      html += `<p><strong>Cantilever:</strong> ${formatFeetInches(engineOut.joists.cantilever_ft)}</p>`;
-    }
-    // Material info from joist material table
-    html += `<p><strong>Material:</strong> SPF #2</p>`;
-    html += '</div>';
-  }
-  
-  // Beams
-  if (engineOut.beams) {
-    html += '<div class="spec-section">';
-    html += '<h4>Beams</h4>';
-    engineOut.beams.forEach((beam, index) => {
-      html += `<div class="spec-subsection">`;
-      html += `<h5>${beam.position === 'outer' ? 'Outer Beam' : 'Inner Beam'}</h5>`;
-      html += `<p><strong>Size:</strong> ${beam.size}</p>`;
-      html += `<p><strong>Style:</strong> ${beam.style}</p>`;
-      if (beam.post_spacing_ft) {
-        html += `<p><strong>Post Spacing:</strong> ${formatFeetInches(beam.post_spacing_ft)}</p>`;
-      }
-      html += `<p><strong>Material:</strong> SPF #2</p>`;
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-  
-  // Posts
-  if (engineOut.posts && engineOut.posts.length > 0) {
-    html += '<div class="spec-section">';
-    html += '<h4>Posts</h4>';
-    html += `<p><strong>Size:</strong> 6x6</p>`;
-    html += `<p><strong>Material:</strong> SPF #2</p>`;
-    html += `<p><strong>Count:</strong> ${engineOut.posts.length}</p>`;
-    html += '<p><strong>Locations:</strong></p>';
-    html += '<ul>';
-    engineOut.posts.forEach(post => {
-      const beam = post.y === 0 ? 'inner beam' : 'outer beam';
-      html += `<li>${formatFeetInches(post.x)} along ${beam}</li>`;
-    });
-    html += '</ul>';
-    html += '</div>';
-  }
-  
-  // Ledger
-  if (context && context.attachment === 'ledger') {
-    html += '<div class="spec-section">';
-    html += '<h4>Ledger</h4>';
-    html += '<p><strong>Type:</strong> 2x10 pressure-treated</p>';
-    html += '<p><strong>Attachment:</strong> 1/2" lag bolts @ 16" O.C.</p>';
-    html += '</div>';
-  }
-  
-  // Compliance
-  if (engineOut.compliance) {
-    html += '<div class="spec-section">';
-    html += '<h4>Code Compliance</h4>';
-    const compliant = engineOut.compliance.warnings.length === 0;
-    html += `<p><strong>Status:</strong> ${compliant ? 'Compliant' : 'Non-compliant'}</p>`;
-    if (engineOut.compliance.warnings.length > 0) {
-      html += '<p><strong>Warnings:</strong></p>';
-      html += '<ul>';
-      engineOut.compliance.warnings.forEach(warning => {
-        html += `<li>${warning}</li>`;
-      });
-      html += '</ul>';
-    }
-    html += '</div>';
-  }
-  
-  html += '</div>';
-  specsDiv.innerHTML = html;
+  // Handle grid configuration changes
+  eventBus.subscribe('canvas:gridChange', (gridConfig) => {
+    logger.log('Grid configuration changed:', gridConfig);
+    store.setState({ gridCfg: gridConfig });
+  });
 }

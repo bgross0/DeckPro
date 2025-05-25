@@ -104,8 +104,21 @@ class DrawingSurface {
     this.isDrawingMode = false;
     this.drawingTouchId = null;
     
-    // Mouse events for panning
+    // Mouse events for drawing and panning
     this.canvas.addEventListener('mousedown', (e) => {
+      // Handle drawing with left mouse button
+      if (e.button === 0) {
+        // Find the footprint layer and delegate drawing
+        const footprintLayer = this.layers.find(l => l.id === 'footprint');
+        if (footprintLayer && footprintLayer.handleMouseDown) {
+          const handled = footprintLayer.handleMouseDown(e);
+          if (handled) {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+      
       // Only pan with middle mouse button or right-click + shift
       if (e.button === 1 || (e.button === 2 && e.shiftKey)) {
         isPanning = true;
@@ -116,6 +129,13 @@ class DrawingSurface {
     });
     
     this.canvas.addEventListener('mousemove', (e) => {
+      // Handle drawing mouse move
+      const footprintLayer = this.layers.find(l => l.id === 'footprint');
+      if (footprintLayer && footprintLayer.handleMouseMove) {
+        footprintLayer.handleMouseMove(e);
+      }
+      
+      // Handle panning
       if (isPanning) {
         const dx = e.clientX - lastX;
         const dy = e.clientY - lastY;
@@ -130,7 +150,13 @@ class DrawingSurface {
       }
     });
     
-    this.canvas.addEventListener('mouseup', () => {
+    this.canvas.addEventListener('mouseup', (e) => {
+      // Handle drawing mouse up
+      const footprintLayer = this.layers.find(l => l.id === 'footprint');
+      if (footprintLayer && footprintLayer.handleMouseUp) {
+        footprintLayer.handleMouseUp(e);
+      }
+      
       isPanning = false;
     });
     

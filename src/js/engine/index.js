@@ -199,3 +199,6 @@ function checkCompliance(input, frame) {
   
   return warnings;
 }
+
+// Export main function globally
+window.computeStructure = computeStructure;

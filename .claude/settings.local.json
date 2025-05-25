@@ -12,7 +12,8 @@
       "Bash(sed:*)",
       "Bash(awk:*)",
       "Bash(node:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

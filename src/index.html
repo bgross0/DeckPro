@@ -448,12 +448,14 @@
     <div class="copyright">© Benjamin Gross 2025</div>
 
     <!-- Load JavaScript -->
-    <script src="js/utils/eventBus.js"></script>
-    <script src="js/utils/store.js"></script>
-    <script src="js/utils/command.js"></script>
-    <script src="js/utils/persistence.js"></script>
+    <!-- Core utilities first -->
+    <script src="js/utils/logger.js"></script>
+    
+    <!-- Data layer -->
     <script src="data/span-tables.js"></script>
     <script src="data/materials.js"></script>
+    
+    <!-- Engine layer -->
     <script src="js/engine/validation.js"></script>
     <script src="js/engine/utils.js"></script>
     <script src="js/engine/joist.js"></script>
@@ -462,18 +464,34 @@
     <script src="js/engine/materials.js"></script>
     <script src="js/engine/cantilever-optimizer.js"></script>
     <script src="js/engine/index.js"></script>
+    
+    <!-- UI foundation -->
+    <script src="js/ui/eventBus.js"></script>
+    <script src="js/ui/store.js"></script>
+    <script src="js/ui/command.js"></script>
+    <script src="js/ui/persistence.js"></script>
+    
+    <!-- Canvas and drawing -->
     <script src="js/ui/canvas.js"></script>
     <script src="js/ui/grid.js"></script>
     <script src="js/ui/footprint.js"></script>
     <script src="js/ui/joistLayer.js"></script>
     <script src="js/ui/beamLayer.js"></script>
-    <script src="js/utils/logger.js"></script>
+    <script src="js/ui/dimensions.js"></script>
+    
+    <!-- Utility modules -->
     <script src="js/utils/footprintUtils.js"></script>
     <script src="js/utils/materialCostUtils.js"></script>
     <script src="js/utils/uiVisibilityUtils.js"></script>
     <script src="js/utils/tabSwitchingUtils.js"></script>
     <script src="js/utils/modalUtils.js"></script>
-    <script src="js/ui/dimensions.js"></script>
+    
+    <!-- UI controller modules -->
+    <script src="js/ui/headerControls.js"></script>
+    <script src="js/ui/toolControls.js"></script>
+    <script src="js/ui/formControls.js"></script>
+    <script src="js/ui/viewControls.js"></script>
+    <script src="js/ui/structureRenderer.js"></script>
     <script src="js/ui/controls.js"></script>
     <script src="js/ui/export.js"></script>
     <script src="js/ui/shadcn-components.js"></script>

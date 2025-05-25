@@ -39,4 +39,12 @@ class CommandStack {
     this.history = [];
     this.future = [];
   }
+  
+  canUndo() {
+    return this.history.length > 0;
+  }
+  
+  canRedo() {
+    return this.future.length > 0;
+  }
 }
