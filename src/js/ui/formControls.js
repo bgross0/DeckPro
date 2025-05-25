@@ -23,6 +23,26 @@ class FormControls {
     if (widthFtEl) {
       const handler = (e) => {
         const width = parseFloat(e.target.value);
+        
+        // Visual validation feedback
+        if (isNaN(width) || width < 0) {
+          e.target.style.borderColor = '#EF4444';
+          e.target.style.backgroundColor = '#FEF2F2';
+          if (window.showToast) {
+            showToast('Width must be a positive number', 'warning');
+          }
+          return;
+        } else if (width < 4) {
+          e.target.style.borderColor = '#F59E0B';
+          e.target.style.backgroundColor = '#FFFBEB';
+          if (window.showToast) {
+            showToast('Width less than 4ft may not meet code requirements', 'warning');
+          }
+        } else {
+          e.target.style.borderColor = '';
+          e.target.style.backgroundColor = '';
+        }
+        
         if (width >= 0) {
           const state = this.store.getState();
           if (state.footprint) {
@@ -42,6 +62,26 @@ class FormControls {
     if (lengthFtEl) {
       const handler = (e) => {
         const length = parseFloat(e.target.value);
+        
+        // Visual validation feedback
+        if (isNaN(length) || length < 0) {
+          e.target.style.borderColor = '#EF4444';
+          e.target.style.backgroundColor = '#FEF2F2';
+          if (window.showToast) {
+            showToast('Length must be a positive number', 'warning');
+          }
+          return;
+        } else if (length < 4) {
+          e.target.style.borderColor = '#F59E0B';
+          e.target.style.backgroundColor = '#FFFBEB';
+          if (window.showToast) {
+            showToast('Length less than 4ft may not meet code requirements', 'warning');
+          }
+        } else {
+          e.target.style.borderColor = '';
+          e.target.style.backgroundColor = '';
+        }
+        
         if (length >= 0) {
           const state = this.store.getState();
           if (state.footprint) {

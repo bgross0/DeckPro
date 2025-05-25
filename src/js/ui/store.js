@@ -18,3 +18,5 @@ const createStore = (initialState) => {
     }
   };
 };
+
+window.createStore = createStore;

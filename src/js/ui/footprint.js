@@ -290,3 +290,5 @@ class FootprintLayer extends Layer {
     }
   }
 }
+
+window.FootprintLayer = FootprintLayer;

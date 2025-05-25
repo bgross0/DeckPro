@@ -122,3 +122,5 @@ class DimensionLayer extends Layer {
     }
   }
 }
+
+window.DimensionLayer = DimensionLayer;

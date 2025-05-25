@@ -118,25 +118,79 @@ class ToolControls {
   generateStructure() {
     const state = this.store.getState();
     
+    logger.log('Generate structure called with state:', state);
+    
     if (!state.footprint) {
-      alert('Please draw a deck footprint first');
+      logger.log('No footprint in state, aborting generation');
+      if (window.showToast) {
+        showToast('Please draw a deck footprint first', 'warning');
+      } else {
+        alert('Please draw a deck footprint first');
+      }
       return;
+    }
+    
+    // Additional validation
+    if (!state.footprint.width_ft || !state.footprint.length_ft) {
+      logger.log('Invalid footprint dimensions:', state.footprint);
+      if (window.showToast) {
+        showToast('Invalid footprint dimensions. Please redraw.', 'warning');
+      }
+      return;
+    }
+    
+    // Show loading state
+    const generateBtn = document.getElementById('generate-btn');
+    const originalText = generateBtn ? generateBtn.textContent : '';
+    if (generateBtn) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Generating...';
+      generateBtn.style.opacity = '0.7';
     }
     
     logger.log('Generating structure for footprint:', state.footprint);
     
-    try {
-      const engineOut = computeStructure(state.footprint, state.context);
-      logger.log('Structure generation complete:', engineOut);
-      
-      this.store.setState({ engineOut });
-      
-      eventBus.emit('structure:generated', engineOut);
-      
-    } catch (error) {
-      logger.error('Structure generation failed:', error);
-      alert(`Structure generation failed: ${error.message}`);
-    }
+    // Use setTimeout to allow UI to update before heavy calculation
+    setTimeout(() => {
+      try {
+        // Combine footprint and context into single payload for engine
+        // Make sure footprint dimensions take precedence over context nulls
+        const payload = {
+          ...state.context,
+          ...state.footprint
+        };
+        
+        logger.log('Debug payload being sent to engine:', payload);
+        logger.log('Debug state.footprint:', state.footprint);
+        logger.log('Debug state.context:', state.context);
+        
+        const engineOut = computeStructure(payload);
+        logger.log('Structure generation complete:', engineOut);
+        
+        this.store.setState({ engineOut });
+        
+        eventBus.emit('structure:generated', engineOut);
+        
+        if (window.showToast) {
+          showToast('Structure generated successfully!', 'success');
+        }
+        
+      } catch (error) {
+        logger.error('Structure generation failed:', error);
+        if (window.showToast) {
+          showToast(`Structure generation failed: ${error.message}`, 'error');
+        } else {
+          alert(`Structure generation failed: ${error.message}`);
+        }
+      } finally {
+        // Restore button state
+        if (generateBtn) {
+          generateBtn.disabled = false;
+          generateBtn.textContent = originalText;
+          generateBtn.style.opacity = '1';
+        }
+      }
+    }, 50);
   }
 }
 

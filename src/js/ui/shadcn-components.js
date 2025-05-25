@@ -76,11 +76,12 @@ window.ShadCNComponents = class ShadCNComponents {
   }
 
   handleExportSelection(value) {
-    // Trigger existing export functionality
-    const exportSelect = document.getElementById('export-menu');
-    if (exportSelect) {
-      exportSelect.value = value;
-      exportSelect.dispatchEvent(new Event('change'));
+    // Emit canvas export event directly
+    if (typeof eventBus !== 'undefined') {
+      eventBus.emit('canvas:export', { format: value });
+      logger.log('Export triggered:', value);
+    } else {
+      console.error('eventBus not available for export');
     }
   }
 
@@ -247,26 +248,33 @@ window.ShadCNComponents = class ShadCNComponents {
   // Update generation button state
   updateGenerateButton(enabled, text = null) {
     const btn = document.getElementById('generate-btn');
-    const btnText = document.getElementById('generate-btn-text');
-    const help = document.getElementById('generate-help');
     
     if (btn) {
       btn.disabled = !enabled;
       if (enabled) {
         btn.classList.remove('btn-secondary');
         btn.classList.add('btn-primary');
+        btn.classList.add('generate-btn');
       } else {
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-secondary');
+        btn.classList.add('generate-btn');
+      }
+      
+      // Update button text directly since there's no separate text element
+      if (text) {
+        btn.textContent = text;
       }
     }
     
-    if (btnText && text) {
-      btnText.textContent = text;
-    }
-    
-    if (help) {
-      help.style.display = enabled ? 'none' : 'block';
+    // Update help text in the same card
+    const helpText = btn ? btn.parentElement.querySelector('.help-text') : null;
+    if (helpText) {
+      if (enabled) {
+        helpText.textContent = 'Ready to generate structure';
+      } else {
+        helpText.textContent = 'Draw a footprint first to enable generation';
+      }
     }
   }
 

@@ -71,14 +71,28 @@ class DrawingSurface {
   }
   
   draw() {
+    // Throttle redraws for performance
+    if (this._drawPending) return this;
+    this._drawPending = true;
+    
+    requestAnimationFrame(() => {
+      this._drawPending = false;
+      this._performDraw();
+    });
+    
+    return this;
+  }
+  
+  _performDraw() {
     this.clear();
     
     this.ctx.save();
     this.ctx.translate(this.pan.x, this.pan.y);
     this.ctx.scale(this.zoom, this.zoom);
     
+    // Only draw visible layers
     this.layers.forEach(layer => {
-      if (layer.visible) {
+      if (layer.visible && this._isLayerInView(layer)) {
         this.ctx.save();
         layer.draw(this.ctx);
         this.ctx.restore();
@@ -86,7 +100,12 @@ class DrawingSurface {
     });
     
     this.ctx.restore();
-    return this;
+  }
+  
+  _isLayerInView(layer) {
+    // Simple viewport culling - always draw for now
+    // Could be optimized for large drawings
+    return true;
   }
   
   setupEventListeners() {
@@ -310,15 +329,5 @@ class DrawingSurface {
   }
 }
 
-// Base Layer class
-class Layer {
-  constructor(id, options = {}) {
-    this.id = id;
-    this.visible = options.visible !== false;
-    this.zIndex = options.zIndex || 0;
-  }
-  
-  draw(ctx) {
-    // Override in subclasses
-  }
-}
+// Make DrawingSurface available globally
+window.DrawingSurface = DrawingSurface;

@@ -92,3 +92,5 @@ class GridLayer extends Layer {
     this.snap = enabled;
   }
 }
+
+window.GridLayer = GridLayer;

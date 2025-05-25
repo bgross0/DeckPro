@@ -37,16 +37,9 @@ class ViewControls {
       this.addListener(zoomOutBtn, 'click', handler);
     }
     
-    const exportMenuEl = document.getElementById('export-menu');
-    if (exportMenuEl) {
-      const handler = (e) => {
-        if (e.target.value) {
-          eventBus.emit('canvas:export', { format: e.target.value });
-          e.target.value = '';
-        }
-      };
-      this.addListener(exportMenuEl, 'change', handler);
-    }
+    // Note: Export handling is done by shadcn-components.js via dropdown items
+    // No need for additional event listeners here as export is handled by 
+    // the ShadCN dropdown system which emits canvas:export events
   }
 }
 

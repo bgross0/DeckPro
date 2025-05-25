@@ -1,5 +1,12 @@
 // Main application initialization
 document.addEventListener('DOMContentLoaded', () => {
+  // Check startup status if available
+  if (window.performStartupCheck) {
+    const startupOk = window.performStartupCheck();
+    if (!startupOk && window.showToast) {
+      showToast('Some dependencies failed to load. The app may not work correctly.', 'warning');
+    }
+  }
   // Detect mobile/touch devices and add class to body
   function isTouchDevice() {
     return ('ontouchstart' in window) ||
@@ -54,8 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const store = createStore({
     footprint: null,
     context: {
-      width_ft: null,
-      length_ft: null,
       height_ft: 3,
       attachment: 'ledger',
       beam_style_outer: null,
@@ -132,6 +137,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportManager = new ExportManager(drawingSurface);
   window.exportManager = exportManager; // Make available globally
   
+  // Initialize auto-save system
+  if (typeof AutoSave !== 'undefined' && typeof persistence !== 'undefined') {
+    const autoSave = new AutoSave(store, persistence);
+    window.autoSave = autoSave;
+    logger.log('Auto-save system initialized');
+  }
+  
   // Set up event handlers
   setupEventHandlers(store, drawingSurface, commandStack);
   
@@ -181,6 +193,10 @@ function setupEventHandlers(store, drawingSurface, commandStack) {
     // **CRITICAL**: Update the store state so generateStructure can access it
     store.setState({ footprint: footprint });
     logger.log('Store updated with footprint:', store.getState().footprint);
+    
+    // Debug: Log the complete store state for structure generation
+    const fullState = store.getState();
+    logger.log('Complete store state after footprint change:', fullState);
     
     // Update form inputs to reflect drawn footprint
     if (footprint) {
@@ -266,18 +282,29 @@ function setupEventHandlers(store, drawingSurface, commandStack) {
     const joistLayer = drawingSurface.layers.find(l => l.id === 'joists');
     if (joistLayer && engineOut.joists) {
       joistLayer.setJoists(engineOut.joists);
+      joistLayer.setFootprint(store.getState().footprint);
     }
     
     // Update beam layer  
     const beamLayer = drawingSurface.layers.find(l => l.id === 'beams');
     if (beamLayer && engineOut.beams) {
       beamLayer.setBeams(engineOut.beams);
+      beamLayer.setFootprint(store.getState().footprint);
+      if (engineOut.posts) {
+        beamLayer.setPosts(engineOut.posts);
+      }
+      if (engineOut.joists && engineOut.joists.cantilever_ft) {
+        beamLayer.setCantilever(engineOut.joists.cantilever_ft);
+      }
+      if (engineOut.joists && engineOut.joists.orientation) {
+        beamLayer.setJoistOrientation(engineOut.joists.orientation);
+      }
     }
     
     // Update dimension layer
     const dimensionLayer = drawingSurface.layers.find(l => l.id === 'dimensions');
-    if (dimensionLayer) {
-      dimensionLayer.setDimensions(engineOut);
+    if (dimensionLayer && store.getState().footprint) {
+      dimensionLayer.setFootprint(store.getState().footprint);
     }
     
     // Redraw canvas

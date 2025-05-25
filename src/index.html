@@ -17,6 +17,8 @@
                 </div>
                 <div class="header-actions">
                     <button id="new-project-btn" title="New Project">📄 New</button>
+                    <button id="save-project-btn" title="Save Project">💾 Save</button>
+                    <button id="load-project-btn" title="Load Project">📂 Load</button>
                     <button id="help-btn" title="Help">❓ Help</button>
                     
                     <!-- Settings Dropdown -->
@@ -280,7 +282,6 @@
                         <div class="card">
                             <div class="card-header">
                                 <h3 class="card-title">Bill of Materials</h3>
-                                <h3 class="card-title">Bill of Materials</h3>
                                 <p class="card-description">Complete material takeoff and quantities</p>
                                 <div style="margin-top: 8px; display: flex; gap: 8px;">
                                     <span class="badge badge-secondary" id="bom-count">0 items</span>
@@ -450,6 +451,7 @@
     <!-- Load JavaScript -->
     <!-- Core utilities first -->
     <script src="js/utils/logger.js"></script>
+    <script src="js/utils/errorHandler.js"></script>
     
     <!-- Data layer -->
     <script src="data/span-tables.js"></script>
@@ -470,8 +472,11 @@
     <script src="js/ui/store.js"></script>
     <script src="js/ui/command.js"></script>
     <script src="js/ui/persistence.js"></script>
+    <script src="js/ui/toast.js"></script>
+    <script src="js/ui/autoSave.js"></script>
     
     <!-- Canvas and drawing -->
+    <script src="js/ui/layer.js"></script>
     <script src="js/ui/canvas.js"></script>
     <script src="js/ui/grid.js"></script>
     <script src="js/ui/footprint.js"></script>
@@ -495,6 +500,7 @@
     <script src="js/ui/controls.js"></script>
     <script src="js/ui/export.js"></script>
     <script src="js/ui/shadcn-components.js"></script>
+    <script src="js/utils/startup-check.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

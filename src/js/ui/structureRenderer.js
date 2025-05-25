@@ -22,6 +22,11 @@ class StructureRenderer {
     // Update estimates
     this.renderEstimates(engineOut);
     
+    // Update cost summary using MaterialCostUtils
+    if (window.MaterialCostUtils) {
+      MaterialCostUtils.updateCostSummary(this.store);
+    }
+    
     // Switch to framing details tab
     const framingTab = document.querySelector('[data-tab="framing"]');
     if (framingTab) {

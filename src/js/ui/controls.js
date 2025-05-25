@@ -98,14 +98,22 @@ window.UIControls = class UIControls {
     
     // Clear canvas button
     const clearCanvasBtn = document.getElementById('clear-canvas-btn');
+    logger.log('Looking for clear canvas button:', clearCanvasBtn);
     if (clearCanvasBtn) {
+      logger.log('Clear canvas button found');
       const handler = () => {
         logger.log('Clear canvas clicked');
         if (confirm('Clear the entire canvas? This cannot be undone.')) {
+          logger.log('User confirmed clear canvas');
           this.clearCanvas();
+        } else {
+          logger.log('User cancelled clear canvas');
         }
       };
       this.addListener(clearCanvasBtn, 'click', handler);
+      logger.log('Clear canvas button event listener added');
+    } else {
+      logger.error('Clear canvas button not found in DOM!');
     }
   }
 
@@ -131,6 +139,13 @@ window.UIControls = class UIControls {
             e.preventDefault();
             this.commandStack.redo();
             this.updateUIFromState();
+            break;
+          case 's':
+            e.preventDefault();
+            // Trigger save via headerControls
+            if (this.headerControls && this.headerControls.saveProject) {
+              this.headerControls.saveProject();
+            }
             break;
         }
       }
@@ -170,6 +185,40 @@ window.UIControls = class UIControls {
     });
     if (this.commandStack) {
       this.commandStack.clear();
+    }
+    
+    // Update UI to reflect cleared state
+    this.updateUIFromState();
+    
+    // Clear form inputs
+    const widthInput = document.getElementById('width-ft');
+    const lengthInput = document.getElementById('length-ft');
+    if (widthInput) widthInput.value = '';
+    if (lengthInput) lengthInput.value = '';
+    
+    // Update generate button state
+    if (window.shadcnComponents && window.shadcnComponents.updateGenerateButton) {
+      window.shadcnComponents.updateGenerateButton(false, 'Draw deck footprint first');
+    }
+    
+    // Clear structure results
+    const framingSpecs = document.getElementById('framing-specs');
+    if (framingSpecs) {
+      framingSpecs.innerHTML = '<p class="help-text">Generate structure to see framing specifications</p>';
+    }
+    
+    const bomContainer = document.getElementById('bom-table-container');
+    if (bomContainer) {
+      bomContainer.innerHTML = '<p class="help-text">Generate structure to see materials</p>';
+    }
+    
+    const costSummary = document.getElementById('cost-summary');
+    if (costSummary) {
+      costSummary.innerHTML = '<p class="help-text">Generate structure to see cost breakdown</p>';
+    }
+    
+    if (window.showToast) {
+      showToast('Canvas cleared successfully', 'success');
     }
   }
 
@@ -231,13 +280,13 @@ window.UIControls = class UIControls {
         if (type === 'setFootprint') {
           const oldFootprint = this.store.getState().footprint;
           this.store.setState({ footprint: data.footprint });
-          eventBus.emit('footprint:changed', data.footprint);
+          eventBus.emit('footprint:change', data.footprint);
           return { type, data: { footprint: oldFootprint } };
         } else if (type === 'setContext') {
           const oldContext = this.store.getState().context;
           const newContext = { ...oldContext, ...data };
           this.store.setState({ context: newContext });
-          eventBus.emit('context:changed', newContext);
+          eventBus.emit('context:change', newContext);
           return { type, data: oldContext };
         }
       }

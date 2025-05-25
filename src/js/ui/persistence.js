@@ -5,9 +5,15 @@ const persistence = {
     try {
       const serialized = JSON.stringify(state);
       localStorage.setItem(this.STORAGE_KEY, serialized);
+      if (window.showToast) {
+        showToast('Project saved successfully', 'success');
+      }
       return true;
     } catch (error) {
       logger.error('Failed to save state:', error);
+      if (window.showToast) {
+        showToast('Failed to save project', 'error');
+      }
       return false;
     }
   },
@@ -16,9 +22,16 @@ const persistence = {
     try {
       const serialized = localStorage.getItem(this.STORAGE_KEY);
       if (!serialized) return null;
-      return JSON.parse(serialized);
+      const state = JSON.parse(serialized);
+      if (window.showToast) {
+        showToast('Project loaded successfully', 'success');
+      }
+      return state;
     } catch (error) {
       logger.error('Failed to load state:', error);
+      if (window.showToast) {
+        showToast('Failed to load project', 'error');
+      }
       return null;
     }
   },

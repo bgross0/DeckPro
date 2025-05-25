@@ -31,3 +31,5 @@ const eventBus = {
     });
   }
 };
+
+window.eventBus = eventBus;

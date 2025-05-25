@@ -38,10 +38,14 @@ function selectBeam(beamSpan, joistSpan, species, footingType = 'helical') {
     const spanValue = spanTable[tableJoistSpan];
     const allowableBeamSpan = engineUtils.feetInchesToDecimal(spanValue);
     
-    if (allowableBeamSpan >= beamSpan) {
-      // Single beam can span the entire distance
-      const postSpacing = Math.min(allowableBeamSpan, beamSpan / Math.ceil(beamSpan / allowableBeamSpan));
-      const postCount = Math.ceil(beamSpan / postSpacing) + 1;
+    // Check if this beam size can work with appropriate post spacing
+    const maxPostSpacing = allowableBeamSpan;  // Max spacing is the allowable span
+    const minPostsNeeded = Math.ceil(beamSpan / maxPostSpacing) + 1;
+    const actualPostSpacing = beamSpan / (minPostsNeeded - 1);
+    
+    if (actualPostSpacing <= allowableBeamSpan) {
+      // This beam size works with proper post spacing
+      const postCount = minPostsNeeded;
       
       // Calculate cost
       const beamLengthPerPly = beamSpan;
@@ -57,7 +61,7 @@ function selectBeam(beamSpan, joistSpan, species, footingType = 'helical') {
           size,
           plyCount,
           dimension,
-          post_spacing_ft: postSpacing,
+          post_spacing_ft: actualPostSpacing,
           post_count: postCount,
           span_ft: beamSpan,
           joist_span_ft: joistSpan,
@@ -69,50 +73,9 @@ function selectBeam(beamSpan, joistSpan, species, footingType = 'helical') {
           }]
         };
       }
-    } else {
-      // Need to splice beams - calculate optimal segments
-      const numSegments = Math.ceil(beamSpan / allowableBeamSpan);
-      const segmentLength = beamSpan / numSegments;
-      
-      if (segmentLength <= allowableBeamSpan) {
-        // Can splice at intermediate posts
-        const postCount = numSegments + 1;
-        const segments = [];
-        
-        for (let i = 0; i < numSegments; i++) {
-          segments.push({
-            start_ft: i * segmentLength,
-            end_ft: (i + 1) * segmentLength,
-            length_ft: segmentLength,
-            splice: i < numSegments - 1  // All but last segment have splice at end
-          });
-        }
-        
-        // Calculate cost with splicing
-        const totalBeamLength = beamSpan;  // Total beam length is still the deck span
-        const costPerFoot = materials.lumber[dimension].costPerFoot;
-        const totalBeamCost = plyCount * totalBeamLength * costPerFoot;
-        const footingCost = materials.footingCosts[footingType] || materials.footingCosts.helical;
-        const postCost = postCount * (materials.hardware.PB66.cost + footingCost);
-        const spliceHardwareCost = (numSegments - 1) * materials.hardware.PB105.cost;  // Splice plates
-        const totalCost = totalBeamCost + postCost + spliceHardwareCost;
-        
-        if (totalCost < minCost) {
-          minCost = totalCost;
-          bestBeam = {
-            size,
-            plyCount,
-            dimension,
-            post_spacing_ft: segmentLength,
-            post_count: postCount,
-            span_ft: beamSpan,
-            joist_span_ft: joistSpan,
-            segments,
-            spliced: true
-          };
-        }
-      }
     }
+    // Note: Splicing is removed as it was allowing non-compliant configurations
+    // Each beam segment must independently satisfy span requirements
   }
   
   if (!bestBeam) {
