@@ -14,7 +14,12 @@
       "Bash(node:*)",
       "Bash(git checkout:*)",
       "Bash(python3:*)",
-      "Bash(comm:*)"
+      "Bash(comm:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(cp:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
