@@ -6,12 +6,15 @@ import { useHotkeys } from 'react-hotkeys-hook'
 export function GridControls() {
   const { gridCfg, updateGridCfg } = useDeckStore()
   const [showSettings, setShowSettings] = useState(false)
+  const [customSize, setCustomSize] = useState('')
   
   const gridSpacingOptions = [
     { label: '6"', value: 6 },
     { label: '12"', value: 12 },
     { label: '16"', value: 16 },
     { label: '24"', value: 24 },
+    { label: '36"', value: 36 },
+    { label: '48"', value: 48 },
   ]
   
   // Keyboard shortcuts
@@ -76,6 +79,45 @@ export function GridControls() {
                   <span className="text-sm">{option.label}</span>
                 </label>
               ))}
+            </div>
+            
+            {/* Custom Size Input */}
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Custom Size</h4>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={customSize}
+                  onChange={(e) => setCustomSize(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customSize) {
+                      const size = parseInt(customSize)
+                      if (size > 0 && size <= 120) {
+                        updateGridCfg({ spacing_in: size })
+                        setCustomSize('')
+                      }
+                    }
+                  }}
+                  placeholder="Enter inches"
+                  className="px-2 py-1 border rounded text-sm w-24"
+                  min="1"
+                  max="120"
+                />
+                <button
+                  onClick={() => {
+                    const size = parseInt(customSize)
+                    if (size > 0 && size <= 120) {
+                      updateGridCfg({ spacing_in: size })
+                      setCustomSize('')
+                    }
+                  }}
+                  disabled={!customSize || parseInt(customSize) <= 0 || parseInt(customSize) > 120}
+                  className="px-2 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
+                >
+                  Set
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">1-120 inches</p>
             </div>
             
             <div className="mt-4 pt-4 border-t">

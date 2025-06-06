@@ -5,6 +5,7 @@ import { selectBeam, determineBeamStyle } from './beam.js'
 import { generatePostList } from './post.js'
 import { generateMaterialTakeoff } from './materials.js'
 import { spanTables } from '../data/span-tables.js'
+import { logger } from '../utils/logger.js'
 
 export function computeStructure(payload) {
   // Validate input
@@ -71,7 +72,7 @@ export function computeStructure(payload) {
   });
   
   // Inner beam/ledger
-  logger.log('Determining inner beam/ledger. Attachment:', input.attachment);
+  logger.info('Determining inner beam/ledger. Attachment:', input.attachment);
   
   if (input.attachment === 'ledger') {
     beams.push({
@@ -80,7 +81,7 @@ export function computeStructure(payload) {
     });
   } else {
     // For freestanding (or any non-ledger), add inner beam
-    logger.log('Creating inner beam for freestanding deck');
+    logger.info('Creating inner beam for freestanding deck');
     const innerBeam = selectBeam(beamSpan, joistSpan, input.species_grade, input.footing_type);
     const innerBeamData = {
       position: 'inner',
@@ -94,12 +95,12 @@ export function computeStructure(payload) {
       segments: innerBeam.segments,
       spliced: innerBeam.spliced || false
     };
-    logger.log('Inner beam data:', innerBeamData);
+    logger.info('Inner beam data:', innerBeamData);
     beams.push(innerBeamData);
   }
   
-  logger.log('Total beams:', beams.length);
-  logger.log('Beams:', beams);
+  logger.info('Total beams:', beams.length);
+  logger.info('Beams:', beams);
   
   // Generate posts with correct positions based on orientation
   // When joists span width (horizontal), beams run vertically along length, posts positioned across width
