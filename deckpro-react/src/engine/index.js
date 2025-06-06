@@ -108,6 +108,8 @@ export function computeStructure(payload) {
   const deckDimensionForPosts = joistsSpanWidth ? input.width_ft : input.length_ft;
   const posts = generatePostList(beams, input.height_ft, input.footing_type, deckDimensionForPosts, joists.cantilever_ft);
   
+  logger.info('Generated posts from generatePostList:', posts);
+  
   // Create frame configuration
   const frame = {
     joists,
@@ -176,7 +178,7 @@ export function computeStructure(payload) {
       segments: beam.segments,
       spliced: beam.spliced
     })),
-    posts: posts.map(post => ({ x: post.x, y: post.y })),
+    posts: posts,
     material_takeoff: takeoff.items,
     metrics,
     compliance: {

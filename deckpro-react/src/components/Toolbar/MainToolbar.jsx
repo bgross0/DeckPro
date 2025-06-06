@@ -5,22 +5,28 @@ import toast from 'react-hot-toast'
 import {
   MousePointer, Square, Ruler, Grid, Eye, EyeOff, Grid3x3,
   Undo, Redo, Trash2, ZoomIn, ZoomOut, Download, Save,
-  FolderOpen, Plus, HelpCircle, Settings, Hammer
+  FolderOpen, Plus, HelpCircle, Settings, Hammer, Layers
 } from 'lucide-react'
 
 export function MainToolbar() {
   const {
     tool,
     setTool,
-    footprint,
-    setFootprint,
-    engineOut,
-    setEngineOut,
-    generateStructure,
+    project,
+    clearProject,
+    generateAllStructures,
     loading,
     gridCfg,
     updateGridCfg,
-    setPreviewRect
+    activeLayer,
+    setActiveLayer,
+    selectedSectionId,
+    showDimensions,
+    showJoists,
+    showBeams,
+    showDecking,
+    showPosts,
+    toggleLayer
   } = useDeckStore()
   
   console.log('MainToolbar - gridCfg:', gridCfg)
@@ -29,9 +35,11 @@ export function MainToolbar() {
   const [customGridSize, setCustomGridSize] = useState('')
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [showLayersMenu, setShowLayersMenu] = useState(false)
   
   const gridDropdownRef = useRef(null)
   const exportDropdownRef = useRef(null)
+  const layersDropdownRef = useRef(null)
 
   // Grid spacing options
   const gridSpacingOptions = [
@@ -52,22 +60,67 @@ export function MainToolbar() {
       if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
         setShowExportMenu(false)
       }
+      if (layersDropdownRef.current && !layersDropdownRef.current.contains(event.target)) {
+        setShowLayersMenu(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Custom icon components
+  const PolygonIcon = ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3 L20 8 L20 16 L12 21 L4 16 L4 8 Z" />
+      <circle cx="12" cy="3" r="2" fill="currentColor" />
+      <circle cx="20" cy="8" r="2" fill="currentColor" />
+      <circle cx="20" cy="16" r="2" fill="currentColor" />
+      <circle cx="12" cy="21" r="2" fill="currentColor" />
+      <circle cx="4" cy="16" r="2" fill="currentColor" />
+      <circle cx="4" cy="8" r="2" fill="currentColor" />
+    </svg>
+  )
+
+  const StairsIcon = ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 20 L4 16 L8 16 L8 12 L12 12 L12 8 L16 8 L16 4 L20 4" />
+      <path d="M4 20 L20 20 L20 4" strokeWidth="1" opacity="0.3" />
+    </svg>
+  )
+
+  const RectangleIcon = ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="4" y="6" width="16" height="12" rx="1" />
+      <circle cx="4" cy="6" r="2" fill="currentColor" />
+      <circle cx="20" cy="6" r="2" fill="currentColor" />
+      <circle cx="20" cy="18" r="2" fill="currentColor" />
+      <circle cx="4" cy="18" r="2" fill="currentColor" />
+    </svg>
+  )
+
   // Tool selection
   const tools = [
     { id: 'select', icon: MousePointer, label: 'Select', hotkey: 's' },
-    { id: 'rectangle', icon: Square, label: 'Draw Rectangle', hotkey: 'r' },
+    { id: 'rectangle', icon: RectangleIcon, label: 'Draw Rectangle', hotkey: 'r' },
+    { id: 'section', icon: PolygonIcon, label: 'Draw Polygon Section', hotkey: 'd' },
+    { id: 'stair', icon: StairsIcon, label: 'Add Stairs', hotkey: 't' },
     { id: 'measure', icon: Ruler, label: 'Measure', hotkey: 'm' }
+  ]
+  
+  // Layer options
+  const layers = [
+    { id: 'all', label: 'All Layers' },
+    { id: 'footprint', label: 'Footprint Only' },
+    { id: 'framing', label: 'Framing Only' },
+    { id: 'decking', label: 'Decking Only' }
   ]
 
   // Keyboard shortcuts
   useHotkeys('s', () => setTool('select'))
   useHotkeys('r', () => setTool('rectangle'))
+  useHotkeys('d', () => setTool('section'))
+  useHotkeys('t', () => setTool('stair'))
   useHotkeys('m', () => setTool('measure'))
   useHotkeys('g', () => updateGridCfg({ visible: !gridCfg.visible }))
   useHotkeys('shift+g', () => updateGridCfg({ snap: !gridCfg.snap }))
@@ -76,16 +129,7 @@ export function MainToolbar() {
   useHotkeys('ctrl+y, cmd+y', handleRedo)
 
   function handleClearCanvas() {
-    if (footprint || engineOut) {
-      if (window.confirm('Clear the canvas? This action cannot be undone.')) {
-        setFootprint(null)
-        setEngineOut(null)
-        setPreviewRect(null)
-        // Also need to set structureGeometry to null
-        useDeckStore.setState({ structureGeometry: null })
-        toast.success('Canvas cleared')
-      }
-    }
+    clearProject()
   }
 
   function handleUndo() {
@@ -121,12 +165,7 @@ export function MainToolbar() {
   }
 
   function handleNewProject() {
-    if (window.confirm('Start a new project? Unsaved changes will be lost.')) {
-      setFootprint(null)
-      setEngineOut(null)
-      setPreviewRect(null)
-      toast.success('New project created')
-    }
+    clearProject()
   }
 
   function handleSaveProject() {
@@ -316,11 +355,127 @@ export function MainToolbar() {
             </div>
           </div>
 
+          {/* Layer Controls */}
+          <div className="relative" ref={layersDropdownRef}>
+            <div className="flex items-center gap-1 px-2 border-r">
+              <button
+                className={`tool-button ${showLayersMenu ? 'active' : ''}`}
+                onClick={() => setShowLayersMenu(!showLayersMenu)}
+                title="Layer Controls"
+              >
+                <Layers className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Layers Dropdown */}
+            {showLayersMenu && (
+              <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-4 min-w-[200px]" style={{ zIndex: 9999 }}>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Toggle Layers</h4>
+                
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDimensions}
+                      onChange={() => toggleLayer('dimensions')}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Dimensions</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showJoists}
+                      onChange={() => toggleLayer('joists')}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Joists</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showBeams}
+                      onChange={() => toggleLayer('beams')}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Beams</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showPosts}
+                      onChange={() => toggleLayer('posts')}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Posts</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDecking}
+                      onChange={() => toggleLayer('decking')}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Decking</span>
+                  </label>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t">
+                  <h5 className="text-xs font-medium text-gray-600 mb-2">Quick Presets</h5>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setActiveLayer('all');
+                        if (!showDimensions) toggleLayer('dimensions');
+                        if (!showJoists) toggleLayer('joists');
+                        if (!showBeams) toggleLayer('beams');
+                        if (!showPosts) toggleLayer('posts');
+                        if (!showDecking) toggleLayer('decking');
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Show All
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveLayer('framing');
+                        if (!showJoists) toggleLayer('joists');
+                        if (!showBeams) toggleLayer('beams');
+                        if (!showPosts) toggleLayer('posts');
+                        if (showDecking) toggleLayer('decking');
+                        if (showDimensions) toggleLayer('dimensions');
+                      }}
+                      className="text-xs text-blue-600 hover:underline block"
+                    >
+                      Framing Only
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveLayer('footprint');
+                        if (showJoists) toggleLayer('joists');
+                        if (showBeams) toggleLayer('beams');
+                        if (showPosts) toggleLayer('posts');
+                        if (showDecking) toggleLayer('decking');
+                      }}
+                      className="text-xs text-blue-600 hover:underline block"
+                    >
+                      Footprint Only
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Generate Structure Button */}
           <div className="flex items-center gap-1 px-2 border-r">
             <button
-              onClick={generateStructure}
-              disabled={loading || !footprint}
+              onClick={generateAllStructures}
+              disabled={loading || project.sections.length === 0}
               className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1"
             >
               {loading ? (

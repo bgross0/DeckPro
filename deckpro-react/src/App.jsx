@@ -1,7 +1,7 @@
 import { Toaster } from 'react-hot-toast'
 import useDeckStore from './store/deckStore'
 import { MainToolbar } from './components/Toolbar/MainToolbar'
-import KonvaCanvas from './components/Canvas/KonvaCanvas'
+import PolygonCanvas from './components/Canvas/PolygonCanvas'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { PriceBookModal } from './components/PriceBook/PriceBookModal'
 import { KeyboardShortcuts } from './components/KeyboardShortcuts'
@@ -22,7 +22,7 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 flex relative overflow-hidden">
         <MainToolbar />
-        <KonvaCanvas />
+        <PolygonCanvas />
         <Sidebar />
       </main>
       

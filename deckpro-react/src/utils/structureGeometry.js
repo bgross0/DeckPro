@@ -141,15 +141,29 @@ export function generateStructureGeometry(engineOut, footprint) {
   // Generate decking board geometry (simplified)
   if (engineOut.input.decking_type) {
     const boardWidth = 5.5 / 12; // 5.5 inches in feet
-    const numBoards = Math.ceil(width / boardWidth);
+    const deckingRunsHorizontal = engineOut.joists?.orientation === 'length'; // Opposite of joists
     
-    for (let i = 0; i < numBoards; i++) {
-      const x = minX + (i * boardWidth);
-      if (x <= maxX) {
-        geometry.decking_boards.push({
-          start: { x, y: minY },
-          end: { x, y: maxY }
-        });
+    if (deckingRunsHorizontal) {
+      const numBoards = Math.ceil(length / boardWidth);
+      for (let i = 0; i < numBoards; i++) {
+        const y = minY + (i * boardWidth);
+        if (y <= maxY) {
+          geometry.decking_boards.push({
+            start: { x: minX, y },
+            end: { x: maxX, y }
+          });
+        }
+      }
+    } else {
+      const numBoards = Math.ceil(width / boardWidth);
+      for (let i = 0; i < numBoards; i++) {
+        const x = minX + (i * boardWidth);
+        if (x <= maxX) {
+          geometry.decking_boards.push({
+            start: { x, y: minY },
+            end: { x, y: maxY }
+          });
+        }
       }
     }
   }
