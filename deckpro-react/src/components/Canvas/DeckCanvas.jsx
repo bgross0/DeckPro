@@ -101,7 +101,6 @@ export function DeckCanvas() {
   // Update footprint in all layers when it changes
   useEffect(() => {
     if (footprint && surfaceRef.current) {
-      console.log('Footprint changed:', footprint)
       // Update footprint in all layers
       Object.values(layersRef.current).forEach(layer => {
         if (layer.setFootprint) {
@@ -125,7 +124,6 @@ export function DeckCanvas() {
   // Update structure visualization when engine output changes
   useEffect(() => {
     if (engineOut && surfaceRef.current && footprint) {
-      console.log('Updating structure visualization with:', { engineOut, footprint })
       // Update layer data
       if (layersRef.current.joist) {
         layersRef.current.joist.setFootprint(footprint)

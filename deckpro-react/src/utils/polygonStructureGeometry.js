@@ -139,14 +139,6 @@ export function generatePolygonStructureGeometry(engineOut, polygon) {
   const bounds = getPolygonBounds(polygon);
   const { minX, maxX, minY, maxY, width, height } = bounds;
   
-  console.log('Generating polygon structure geometry:', {
-    engineOut,
-    polygon,
-    bounds,
-    joistOrientation: engineOut.joists?.orientation,
-    joistCount: engineOut.joists?.count,
-    beams: engineOut.beams
-  });
   
   const geometry = {
     joists: [],

@@ -9,7 +9,11 @@ import { EstimatesPanel } from './EstimatesPanel'
 
 export function Sidebar() {
   const [open, setOpen] = useState(true)
-  const { engineOut } = useDeckStore()
+  const { project, selectedSectionId } = useDeckStore()
+  
+  // Check if the selected section has a structure
+  const selectedSection = project.sections.find(s => s.id === selectedSectionId)
+  const hasStructure = selectedSection?.structure?.engineOut != null
   
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen}>
@@ -43,21 +47,21 @@ export function Sidebar() {
               </Tabs.Trigger>
               <Tabs.Trigger 
                 value="framing"
-                disabled={!engineOut} 
+                disabled={!hasStructure} 
                 className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Framing
               </Tabs.Trigger>
               <Tabs.Trigger 
                 value="materials"
-                disabled={!engineOut}
+                disabled={!hasStructure}
                 className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Materials
               </Tabs.Trigger>
               <Tabs.Trigger 
                 value="estimates"
-                disabled={!engineOut}
+                disabled={!hasStructure}
                 className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Estimates

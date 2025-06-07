@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { Stage, Layer, Line, Circle, Text, Group, Rect } from 'react-konva';
+import { Stage, Layer, Line, Circle, Text, Group, Rect, Arrow } from 'react-konva';
 import useDeckStore from '../../store/deckStore';
 import { logger } from '../../utils/logger';
 
@@ -38,6 +38,8 @@ export default function PolygonCanvas() {
     rectangleStart,
     measureStart,
     measureEnd,
+    stairStart,
+    stairEnd,
     gridCfg,
     showGrid,
     showDimensions,
@@ -56,7 +58,10 @@ export default function PolygonCanvas() {
     selectSection,
     startMeasure,
     updateMeasure,
-    completeMeasure
+    completeMeasure,
+    startDrawingStair,
+    updateStairEnd,
+    completeStair
   } = useDeckStore();
 
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -172,6 +177,10 @@ export default function PolygonCanvas() {
       } else {
         completeMeasure();
       }
+    } else if (tool === 'stair') {
+      if (drawingMode !== 'drawing') {
+        startDrawingStair(worldPos);
+      }
     }
   };
 
@@ -180,10 +189,16 @@ export default function PolygonCanvas() {
     const point = stage.getPointerPosition();
     const worldPos = screenToWorld(point.x, point.y);
     
-    setMousePos(point);
+    // Only update mouse position if tool requires coordinate display
+    if (tool === 'section') {
+      setMousePos(point);
+    }
     
     if (drawingMode === 'drawing') {
       setLocalPreviewPoint(worldPos);
+      if (tool === 'stair' && stairStart) {
+        updateStairEnd(worldPos);
+      }
     } else if (drawingMode === 'measuring' && measureStart) {
       updateMeasure(worldPos);
     }
@@ -201,6 +216,18 @@ export default function PolygonCanvas() {
       
       if (width > 0.5 && height > 0.5) { // Minimum 6 inches
         completeRectangle(worldPos);
+      } else {
+        cancelDrawing();
+      }
+    } else if (tool === 'stair' && drawingMode === 'drawing' && stairStart) {
+      // Complete stair if we've dragged far enough
+      const dx = worldPos.x - stairStart.x;
+      const dy = worldPos.y - stairStart.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > 2) { // Minimum 2 feet
+        updateStairEnd(worldPos);
+        completeStair();
       } else {
         cancelDrawing();
       }
@@ -487,17 +514,24 @@ export default function PolygonCanvas() {
   };
 
   // Render structure for sections
-  const renderStructures = () => {
+  const renderStructures = useCallback(() => {
     if (activeLayer === 'footprint') return null;
     
-    logger.info('Rendering structures with visibility:', {
-      activeLayer,
-      showJoists,
-      showBeams,
-      showPosts,
-      showDecking,
-      showDimensions
-    });
+    // Log only in development and throttled
+    if (process.env.NODE_ENV === 'development') {
+      const now = Date.now();
+      if (!window._lastStructureLog || now - window._lastStructureLog > 1000) {
+        logger.info('Rendering structures with visibility:', {
+          activeLayer,
+          showJoists,
+          showBeams,
+          showPosts,
+          showDecking,
+          showDimensions
+        });
+        window._lastStructureLog = now;
+      }
+    }
     
     return project.sections.map(section => {
       if (!section.structure?.geometry) return null;
@@ -524,7 +558,7 @@ export default function PolygonCanvas() {
       
       return <Group key={`structure-${section.id}`}>{elements}</Group>;
     });
-  };
+  }, [activeLayer, showJoists, showBeams, showPosts, showDecking, showDimensions, project.sections]);
 
   const renderJoists = (joists, sectionId) => {
     return joists.map((joist, i) => (
@@ -562,7 +596,6 @@ export default function PolygonCanvas() {
   };
 
   const renderPosts = (posts, sectionId) => {
-    logger.info(`Rendering ${posts.length} posts for section ${sectionId}`, posts);
     return posts.map((post, i) => (
       <Rect
         key={`post-${sectionId}-${i}`}
@@ -593,6 +626,151 @@ export default function PolygonCanvas() {
     ));
   };
 
+  // Render stairs
+  const renderStairs = () => {
+    if (!project.stairs || project.stairs.length === 0) return null;
+    
+    return project.stairs.map(stair => {
+      const { topConnection, bottomConnection, dimensions } = stair;
+      if (!topConnection.position || !bottomConnection.position) return null;
+      
+      const top = topConnection.position;
+      const bottom = bottomConnection.position;
+      const width = dimensions.width / 12; // Convert to feet
+      
+      // Calculate perpendicular direction for width
+      const dx = bottom.x - top.x;
+      const dy = bottom.y - top.y;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const perpX = -dy / length * width / 2;
+      const perpY = dx / length * width / 2;
+      
+      // Create stair outline
+      const points = [
+        (top.x - perpX) * PIXELS_PER_FOOT,
+        (top.y - perpY) * PIXELS_PER_FOOT,
+        (top.x + perpX) * PIXELS_PER_FOOT,
+        (top.y + perpY) * PIXELS_PER_FOOT,
+        (bottom.x + perpX) * PIXELS_PER_FOOT,
+        (bottom.y + perpY) * PIXELS_PER_FOOT,
+        (bottom.x - perpX) * PIXELS_PER_FOOT,
+        (bottom.y - perpY) * PIXELS_PER_FOOT,
+      ];
+      
+      return (
+        <Group key={stair.id}>
+          {/* Stair outline */}
+          <Line
+            points={points}
+            closed
+            fill="rgba(150, 150, 150, 0.3)"
+            stroke="#666"
+            strokeWidth={2}
+          />
+          
+          {/* Step lines */}
+          {Array.from({ length: dimensions.numberOfSteps }).map((_, i) => {
+            const stepRatio = i / dimensions.numberOfSteps;
+            const stepX = top.x + dx * stepRatio;
+            const stepY = top.y + dy * stepRatio;
+            
+            return (
+              <Line
+                key={i}
+                points={[
+                  (stepX - perpX) * PIXELS_PER_FOOT,
+                  (stepY - perpY) * PIXELS_PER_FOOT,
+                  (stepX + perpX) * PIXELS_PER_FOOT,
+                  (stepY + perpY) * PIXELS_PER_FOOT,
+                ]}
+                stroke="#999"
+                strokeWidth={1}
+              />
+            );
+          })}
+          
+          {/* Stair info */}
+          <Text
+            x={(top.x + bottom.x) / 2 * PIXELS_PER_FOOT}
+            y={(top.y + bottom.y) / 2 * PIXELS_PER_FOOT}
+            text={`${dimensions.numberOfSteps} steps`}
+            fontSize={12}
+            fill="#666"
+            align="center"
+            offsetX={30}
+          />
+        </Group>
+      );
+    });
+  };
+  
+  // Render stair preview during drawing
+  const renderStairPreview = () => {
+    const endPoint = stairEnd || localPreviewPoint;
+    if (!stairStart || !endPoint || tool !== 'stair' || drawingMode !== 'drawing') return null;
+    
+    const width = 3; // 3 feet width for preview
+    const dx = endPoint.x - stairStart.x;
+    const dy = endPoint.y - stairStart.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    if (length < 0.1) return null;
+    
+    const perpX = -dy / length * width / 2;
+    const perpY = dx / length * width / 2;
+    
+    const points = [
+      (stairStart.x - perpX) * PIXELS_PER_FOOT,
+      (stairStart.y - perpY) * PIXELS_PER_FOOT,
+      (stairStart.x + perpX) * PIXELS_PER_FOOT,
+      (stairStart.y + perpY) * PIXELS_PER_FOOT,
+      (endPoint.x + perpX) * PIXELS_PER_FOOT,
+      (endPoint.y + perpY) * PIXELS_PER_FOOT,
+      (endPoint.x - perpX) * PIXELS_PER_FOOT,
+      (endPoint.y - perpY) * PIXELS_PER_FOOT,
+    ];
+    
+    // Calculate approximate steps
+    const run = length * 12; // Convert to inches
+    const estimatedSteps = Math.max(1, Math.floor(run / 11)); // Assume 11" tread depth
+    
+    return (
+      <Group>
+        <Line
+          points={points}
+          closed
+          fill="rgba(59, 130, 246, 0.2)"
+          stroke="#3B82F6"
+          strokeWidth={2}
+          dash={[5, 5]}
+        />
+        
+        {/* Direction arrow */}
+        <Arrow
+          points={[
+            stairStart.x * PIXELS_PER_FOOT,
+            stairStart.y * PIXELS_PER_FOOT,
+            endPoint.x * PIXELS_PER_FOOT,
+            endPoint.y * PIXELS_PER_FOOT,
+          ]}
+          pointerLength={10}
+          pointerWidth={10}
+          fill="#3B82F6"
+          stroke="#3B82F6"
+          strokeWidth={2}
+        />
+        
+        <Text
+          x={endPoint.x * PIXELS_PER_FOOT}
+          y={endPoint.y * PIXELS_PER_FOOT + 10}
+          text={`~${estimatedSteps} steps`}
+          fontSize={14}
+          fill="#3B82F6"
+        />
+      </Group>
+    );
+  };
+  
   // Render measurement line
   const renderMeasurement = () => {
     if (!measureStart) return null;
@@ -607,6 +785,27 @@ export default function PolygonCanvas() {
     
     const midX = (measureStart.x + endPoint.x) / 2 * PIXELS_PER_FOOT;
     const midY = (measureStart.y + endPoint.y) / 2 * PIXELS_PER_FOOT;
+    
+    // Check if measuring a section
+    let measuredSection = null;
+    let sectionArea = 0;
+    
+    if (measureEnd) {
+      // Find if both points are in the same section
+      measuredSection = project.sections.find(section => 
+        isPointInPolygon(measureStart, section.polygon) && 
+        isPointInPolygon(measureEnd, section.polygon)
+      );
+      
+      if (measuredSection) {
+        // Calculate area
+        sectionArea = measuredSection.polygon.reduce((area, point, i) => {
+          const nextPoint = measuredSection.polygon[(i + 1) % measuredSection.polygon.length];
+          return area + (point.x * nextPoint.y - nextPoint.x * point.y);
+        }, 0) / 2;
+        sectionArea = Math.abs(sectionArea);
+      }
+    }
     
     return (
       <Group>
@@ -637,27 +836,38 @@ export default function PolygonCanvas() {
           fill="#EF4444"
         />
         
-        {/* Distance label */}
+        {/* Distance/Area label */}
         <Group x={midX} y={midY}>
           <Rect
-            x={-30}
-            y={-10}
-            width={60}
-            height={20}
+            x={-50}
+            y={measuredSection ? -20 : -10}
+            width={100}
+            height={measuredSection ? 40 : 20}
             fill="white"
             stroke="#EF4444"
             strokeWidth={1}
             cornerRadius={3}
           />
           <Text
-            x={-28}
-            y={-6}
+            x={-48}
+            y={measuredSection ? -16 : -6}
             text={`${distance.toFixed(1)}'`}
             fontSize={14}
             fill="#EF4444"
-            width={56}
+            width={96}
             align="center"
           />
+          {measuredSection && (
+            <Text
+              x={-48}
+              y={2}
+              text={`${sectionArea.toFixed(0)} sq ft`}
+              fontSize={12}
+              fill="#EF4444"
+              width={96}
+              align="center"
+            />
+          )}
         </Group>
       </Group>
     );
@@ -670,7 +880,7 @@ export default function PolygonCanvas() {
     <div 
       ref={containerRef} 
       className="relative w-full h-full bg-gray-100"
-      style={{ cursor: tool === 'section' || tool === 'rectangle' || tool === 'measure' ? 'crosshair' : 'grab' }}
+      style={{ cursor: tool === 'section' || tool === 'rectangle' || tool === 'measure' || tool === 'stair' ? 'crosshair' : 'grab' }}
     >
       <Stage
         ref={stageRef}
@@ -689,9 +899,11 @@ export default function PolygonCanvas() {
         <Layer key={layerKey}>
           {renderGrid}
           {renderSections()}
+          {renderStairs()}
           {renderStructures()}
           {renderDrawingPolygon()}
           {renderRectanglePreview()}
+          {renderStairPreview()}
           {renderMeasurement()}
         </Layer>
       </Stage>
@@ -702,6 +914,7 @@ export default function PolygonCanvas() {
           <div className="text-sm font-medium">
             {tool === 'rectangle' ? 'Drawing Rectangle' : 
              tool === 'measure' ? 'Measuring Distance' :
+             tool === 'stair' ? 'Drawing Stairs' :
              'Drawing Deck Section'}
           </div>
           <div className="text-xs text-gray-600 mt-1">
@@ -709,11 +922,13 @@ export default function PolygonCanvas() {
               'Click and drag to draw rectangle' : 
              tool === 'measure' ?
               'Click two points to measure distance' :
+             tool === 'stair' ?
+              'Click start point near deck edge, then click end point' :
               'Click to add points • Click near start point to close'
             }
           </div>
           <div className="text-xs text-gray-600">
-            {tool === 'measure' ?
+            {tool === 'measure' || tool === 'stair' ?
               'Press Esc to cancel' :
              tool === 'rectangle' ? 
               'Press Esc to cancel' :

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import useDeckStore from '../../store/deckStore'
 import toast from 'react-hot-toast'
+import { HelpModal } from '../HelpModal'
+import { SettingsModal } from '../SettingsModal'
 import {
   MousePointer, Square, Ruler, Grid, Eye, EyeOff, Grid3x3,
   Undo, Redo, Trash2, ZoomIn, ZoomOut, Download, Save,
@@ -26,16 +28,24 @@ export function MainToolbar() {
     showBeams,
     showDecking,
     showPosts,
-    toggleLayer
+    toggleLayer,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    saveProject,
+    loadProject,
+    saveToLocalStorage
   } = useDeckStore()
   
-  console.log('MainToolbar - gridCfg:', gridCfg)
 
   const [showGridSettings, setShowGridSettings] = useState(false)
   const [customGridSize, setCustomGridSize] = useState('')
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [showLayersMenu, setShowLayersMenu] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   
   const gridDropdownRef = useRef(null)
   const exportDropdownRef = useRef(null)
@@ -127,19 +137,18 @@ export function MainToolbar() {
   useHotkeys('delete', handleClearCanvas)
   useHotkeys('ctrl+z, cmd+z', handleUndo)
   useHotkeys('ctrl+y, cmd+y', handleRedo)
+  useHotkeys('f1', () => setShowHelpModal(true))
 
   function handleClearCanvas() {
     clearProject()
   }
 
   function handleUndo() {
-    // TODO: Implement with history
-    toast.info('Undo not yet implemented')
+    undo()
   }
 
   function handleRedo() {
-    // TODO: Implement with history
-    toast.info('Redo not yet implemented')
+    redo()
   }
 
   function handleZoomIn() {
@@ -169,13 +178,27 @@ export function MainToolbar() {
   }
 
   function handleSaveProject() {
-    // TODO: Implement project save
-    toast.info('Save project coming soon')
+    // Show options: save to file or browser
+    const choice = window.confirm('Save to file? (OK = File, Cancel = Browser Storage)')
+    if (choice) {
+      saveProject()
+    } else {
+      saveToLocalStorage()
+    }
   }
 
   function handleLoadProject() {
-    // TODO: Implement project load
-    toast.info('Load project coming soon')
+    // Create file input
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (e) => {
+      const file = e.target.files[0]
+      if (file) {
+        loadProject(file)
+      }
+    }
+    input.click()
   }
 
   return (
@@ -203,7 +226,7 @@ export function MainToolbar() {
               className="tool-button"
               onClick={handleUndo}
               title="Undo (Ctrl+Z)"
-              disabled={true} // TODO: Enable when history is implemented
+              disabled={!canUndo()}
             >
               <Undo className="w-5 h-5" />
             </button>
@@ -211,7 +234,7 @@ export function MainToolbar() {
               className="tool-button"
               onClick={handleRedo}
               title="Redo (Ctrl+Y)"
-              disabled={true} // TODO: Enable when history is implemented
+              disabled={!canRedo()}
             >
               <Redo className="w-5 h-5" />
             </button>
@@ -262,7 +285,6 @@ export function MainToolbar() {
               <button
                 className={`tool-button ${showGridSettings ? 'active' : ''}`}
                 onClick={() => {
-                  console.log('Grid settings clicked, current state:', showGridSettings)
                   setShowGridSettings(!showGridSettings)
                 }}
                 title="Grid Settings"
@@ -297,13 +319,19 @@ export function MainToolbar() {
                       <input
                         type="number"
                         value={customGridSize}
-                        onChange={(e) => setCustomGridSize(e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 120)) {
+                            setCustomGridSize(value)
+                          }
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && customGridSize) {
                             const size = parseInt(customGridSize)
                             if (size > 0 && size <= 120) {
                               updateGridCfg({ spacing_in: size })
                               setCustomGridSize('')
+                              toast.success(`Grid spacing set to ${size}"`)
                             }
                           }
                         }}
@@ -318,10 +346,13 @@ export function MainToolbar() {
                           if (size > 0 && size <= 120) {
                             updateGridCfg({ spacing_in: size })
                             setCustomGridSize('')
+                            toast.success(`Grid spacing set to ${size}"`)
+                          } else {
+                            toast.error('Grid spacing must be between 1 and 120 inches')
                           }
                         }}
                         disabled={!customGridSize || parseInt(customGridSize) <= 0 || parseInt(customGridSize) > 120}
-                        className="px-2 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
+                        className="px-2 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Set
                       </button>
@@ -552,7 +583,7 @@ export function MainToolbar() {
             {/* Settings */}
             <button
               className="tool-button"
-              onClick={() => toast.info('Settings coming soon')}
+              onClick={() => setShowSettingsModal(true)}
               title="Settings"
             >
               <Settings className="w-5 h-5" />
@@ -561,8 +592,8 @@ export function MainToolbar() {
             {/* Help */}
             <button
               className="tool-button"
-              onClick={() => toast.info('Help documentation coming soon')}
-              title="Help"
+              onClick={() => setShowHelpModal(true)}
+              title="Help (F1)"
             >
               <HelpCircle className="w-5 h-5" />
             </button>
@@ -574,6 +605,12 @@ export function MainToolbar() {
       <div className="mt-2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-75 inline-block">
         Grid: {gridCfg.spacing_in}" {gridCfg.snap ? '• Snap ON' : '• Snap OFF'}
       </div>
+      
+      {/* Help Modal */}
+      <HelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+      
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
     </div>
   )
 }

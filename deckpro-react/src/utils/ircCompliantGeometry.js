@@ -133,21 +133,6 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
   const bounds = getPolygonBounds(polygon);
   const { minX, maxX, minY, maxY, width, height } = bounds;
   
-  console.log('IRC Compliant Geometry Generation:', {
-    bounds,
-    joistOrientation: engineOut.joists?.orientation,
-    joistCount: engineOut.joists?.count,
-    joistSpacing: engineOut.joists?.spacing_in,
-    cantilever: engineOut.joists?.cantilever_ft,
-    beams: engineOut.beams?.map(b => ({ 
-      position: b.position, 
-      style: b.style,
-      post_spacing: b.post_spacing_ft,
-      post_count: b.post_count 
-    })),
-    posts: engineOut.posts,
-    deckDimensions: { width, height }
-  });
   
   const geometry = {
     joists: [],
@@ -162,32 +147,35 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
     const spacing_ft = spacing_in / 12;
     
     // Critical: Understand joist orientation
-    // orientation = 'width' means joists SPAN the width dimension
-    // This means they RUN perpendicular to width (north-south if width is east-west)
+    // orientation = 'width' means joists SPAN the width dimension (run E-W across the width)
+    // orientation = 'length' means joists SPAN the length dimension (run N-S across the length)
     const joistsSpanWidth = orientation === 'width';
     const isLedgerAttached = engineOut.beams?.some(b => b.style === 'ledger');
     
+    // Joists should always span the SHORTER dimension
+    // If width < length, joists run E-W (spanning width)
+    // If length < width, joists run N-S (spanning length)
+    
     if (joistsSpanWidth) {
-      // Joists SPAN the width (E-W), so they RUN E-W and are PLACED N-S
-      // Use the engine's joist count which is already calculated correctly
+      // Width is the shorter dimension - joists run E-W
+      // They are placed at intervals along the N-S (length) dimension
       const joistCount = engineOut.joists.count;
       
-      // Joists run from ledger/inner beam to outer beam
       for (let i = 0; i < joistCount; i++) {
-        const x = minX + (i * spacing_ft);
-        if (x <= maxX + 0.1) {
-          // Joist runs E-W at this X position
-          let lineStart = { x: x, y: minY };
-          let lineEnd = { x: x, y: maxY };
+        const y = minY + (i * spacing_ft);
+        if (y <= maxY + 0.1) {
+          // Joist runs E-W (across width) at this Y position
+          let lineStart = { x: minX, y: y };
+          let lineEnd = { x: maxX, y: y };
           
           // Adjust for cantilever
           if (isLedgerAttached) {
-            // Ledger at minY, cantilever extends past maxY
-            lineEnd.y = maxY + cantilever_ft;
+            // Ledger at minX, cantilever extends past maxX
+            lineEnd.x = maxX + cantilever_ft;
           } else {
             // Freestanding - cantilever on both sides
-            lineStart.y = minY - cantilever_ft;
-            lineEnd.y = maxY + cantilever_ft;
+            lineStart.x = minX - cantilever_ft;
+            lineEnd.x = maxX + cantilever_ft;
           }
           
           const clipped = lineIntersectsPolygon(lineStart, lineEnd, polygon);
@@ -201,26 +189,25 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
         }
       }
     } else {
-      // Joists SPAN the length (N-S), so they RUN N-S and are PLACED E-W
-      // Use the engine's joist count which is already calculated correctly
+      // Length is the shorter dimension - joists run N-S
+      // They are placed at intervals along the E-W (width) dimension
       const joistCount = engineOut.joists.count;
       
-      // Joists run from ledger/inner beam to outer beam
       for (let i = 0; i < joistCount; i++) {
-        const y = minY + (i * spacing_ft);
-        if (y <= maxY + 0.1) {
-          // Joist runs N-S at this Y position
-          let lineStart = { x: minX, y: y };
-          let lineEnd = { x: maxX, y: y };
+        const x = minX + (i * spacing_ft);
+        if (x <= maxX + 0.1) {
+          // Joist runs N-S (across length) at this X position
+          let lineStart = { x: x, y: minY };
+          let lineEnd = { x: x, y: maxY };
           
           // Adjust for cantilever
           if (isLedgerAttached) {
-            // Ledger at minX, cantilever extends past maxX
-            lineEnd.x = maxX + cantilever_ft;
+            // Ledger at minY, cantilever extends past maxY
+            lineEnd.y = maxY + cantilever_ft;
           } else {
             // Freestanding - cantilever on both sides
-            lineStart.x = minX - cantilever_ft;
-            lineEnd.x = maxX + cantilever_ft;
+            lineStart.y = minY - cantilever_ft;
+            lineEnd.y = maxY + cantilever_ft;
           }
           
           const clipped = lineIntersectsPolygon(lineStart, lineEnd, polygon);
@@ -248,44 +235,35 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
       
       // Beams run perpendicular to joists
       if (joistsSpanWidth) {
-        // Joists span east-west, beams run north-south
-        // The engine has already calculated the correct beam positions
+        // Joists span width (run E-W), so beams run N-S
         
         if (engineBeam.position === 'outer') {
-          // Outer beam position from engine's post placement
-          const deckWidth = width; // E-W dimension
-          const beamX = minX + (deckWidth - cantilever);
+          // Outer beam is at the far edge minus cantilever
+          const beamX = minX + (width - cantilever);
           beamStart = { x: beamX, y: minY };
           beamEnd = { x: beamX, y: maxY };
         } else {
           // Inner beam at deck origin
-          const beamX = minX; // Inner beam is at x=0 in engine coords
+          const beamX = minX;
           beamStart = { x: beamX, y: minY };
           beamEnd = { x: beamX, y: maxY };
         }
       } else {
-        // Joists span north-south, beams run east-west
-        // The engine has already calculated the correct beam positions
-        // For a 16ft deck with 2.5ft cantilever:
-        // - Inner beam at y=0 (engine) -> minY + 0 (absolute)
-        // - Outer beam at y=13.5 (engine) -> minY + 13.5 (absolute)
+        // Joists span length (run N-S), so beams run E-W
         
         if (engineBeam.position === 'outer') {
-          // Outer beam position from engine's post placement
-          // Engine places outer posts at deck_width - cantilever
-          const deckWidth = height; // N-S dimension
-          const beamY = minY + (deckWidth - cantilever);
+          // Outer beam is at the far edge minus cantilever
+          const beamY = minY + (height - cantilever);
           beamStart = { x: minX, y: beamY };
           beamEnd = { x: maxX, y: beamY };
         } else {
           // Inner beam at deck origin
-          const beamY = minY; // Inner beam is at y=0 in engine coords
+          const beamY = minY;
           beamStart = { x: minX, y: beamY };
           beamEnd = { x: maxX, y: beamY };
         }
       }
       
-      console.log(`Beam ${engineBeam.position} placed at:`, beamStart, 'to', beamEnd);
       
       geometry.beams.push({
         start: beamStart,
@@ -301,39 +279,34 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
   
   // 3. POSTS - IRC compliant placement based on beam positions
   if (engineOut.posts && Array.isArray(engineOut.posts)) {
-    // Engine provides posts in deck-relative coordinates where:
-    // - X is along the beam direction (long dimension)
-    // - Y is across the deck (perpendicular to beams)
-    // We need to transform to absolute polygon coordinates
+    // Engine provides posts in a coordinate system where:
+    // - X is along the beam direction
+    // - Y is across the deck (position on joist span)
     
     const joistsSpanWidth = engineOut.joists?.orientation === 'width';
     
-    console.log('Processing', engineOut.posts.length, 'posts from engine');
     
     engineOut.posts.forEach((enginePost, idx) => {
-      console.log(`Post ${idx} from engine:`, enginePost);
       let absolutePost;
       
       if (joistsSpanWidth) {
-        // Joists span width (E-W), beams run N-S
-        // Engine X is along beams (N-S), Engine Y is across deck (E-W)
-        // In this case, beams run vertically (along Y axis), so:
-        // - Engine X (along beam) maps to our Y
-        // - Engine Y (across deck) maps to our X
+        // Joists span width (run E-W), beams run N-S
+        // Engine X is position along beam (N-S direction)
+        // Engine Y is position across deck (E-W direction, where beams are placed)
         absolutePost = {
-          x: minX + enginePost.y,  // Engine Y becomes our X
-          y: minY + enginePost.x   // Engine X becomes our Y
+          x: minX + enginePost.y,  // Engine Y is beam position (E-W)
+          y: minY + enginePost.x   // Engine X is position along beam (N-S)
         };
       } else {
-        // Joists span length (N-S), beams run E-W
-        // Engine coordinates match our coordinate system
+        // Joists span length (run N-S), beams run E-W
+        // Engine X is position along beam (E-W direction)
+        // Engine Y is position across deck (N-S direction, where beams are placed)
         absolutePost = {
-          x: minX + enginePost.x,
-          y: minY + enginePost.y
+          x: minX + enginePost.x,  // Engine X is position along beam (E-W)
+          y: minY + enginePost.y   // Engine Y is beam position (N-S)
         };
       }
       
-      console.log(`Post ${idx} transformed to absolute:`, absolutePost, 'joistsSpanWidth:', joistsSpanWidth);
       
       // Check if post is inside polygon or on the edge
       const isInside = isPointInPolygon(absolutePost, polygon);
@@ -353,12 +326,10 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
         }
       }
       
-      console.log(`Post ${idx} checks: inside=${isInside}, onVertex=${isOnVertex}, onEdge=${isOnEdge}`);
       
       // Only add posts that are inside or on the polygon
       if (isInside || isOnVertex || isOnEdge) {
         geometry.posts.push(absolutePost);
-        console.log(`Post ${idx} ADDED to geometry`);
         
         // Assign to nearest beam
         let nearestBeam = null;
@@ -367,7 +338,6 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
         
         geometry.beams.forEach((beam, beamIdx) => {
           const dist = pointToLineDistance(absolutePost, beam.start, beam.end);
-          console.log(`  Distance to beam ${beamIdx}: ${dist}`);
           if (dist < minDistance && dist < 0.5) { // Within 6 inches
             minDistance = dist;
             nearestBeam = beam;
@@ -377,16 +347,12 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
         
         if (nearestBeam) {
           nearestBeam.posts.push(absolutePost);
-          console.log(`Post ${idx} assigned to beam ${nearestBeamIdx} at distance ${minDistance}`);
         } else {
-          console.log(`Post ${idx} NOT assigned to any beam - minimum distance was ${minDistance}`);
         }
       } else {
-        console.log(`Post ${idx} EXCLUDED - outside polygon bounds`);
       }
     });
     
-    console.log('Final geometry posts:', geometry.posts.length);
   } else if (geometry.beams.length > 0) {
     // Generate posts based on beam specifications
     geometry.beams.forEach(beam => {
@@ -419,7 +385,7 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
     const joistsSpanWidth = engineOut.joists?.orientation === 'width';
     
     if (joistsSpanWidth) {
-      // Joists span east-west, decking runs north-south
+      // Joists run E-W, decking runs N-S (perpendicular)
       const numBoards = Math.ceil(width / boardWidth);
       for (let i = 0; i < numBoards; i++) {
         const x = minX + (i * boardWidth);
@@ -437,7 +403,7 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
         }
       }
     } else {
-      // Joists span north-south, decking runs east-west
+      // Joists run N-S, decking runs E-W (perpendicular)
       const numBoards = Math.ceil(height / boardWidth);
       for (let i = 0; i < numBoards; i++) {
         const y = minY + (i * boardWidth);
@@ -457,13 +423,6 @@ export function generateIRCCompliantGeometry(engineOut, polygon) {
     }
   }
   
-  console.log('Final IRC geometry:', {
-    joists: geometry.joists.length,
-    beams: geometry.beams.length,
-    posts: geometry.posts.length,
-    decking: geometry.decking_boards.length,
-    beamsWithPosts: geometry.beams.map((b, i) => ({ beam: i, posts: b.posts.length }))
-  });
   
   return geometry;
 }

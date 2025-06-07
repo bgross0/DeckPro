@@ -6,11 +6,13 @@ import { Sidebar } from './components/Sidebar/Sidebar'
 import { PriceBookModal } from './components/PriceBook/PriceBookModal'
 import { KeyboardShortcuts } from './components/KeyboardShortcuts'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { useAutoSave } from './hooks/useAutoSave'
 
 function App() {
   const { generateStructure, loading } = useDeckStore()
   
-  console.log('App rendering...')
+  // Enable auto-save
+  useAutoSave()
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">

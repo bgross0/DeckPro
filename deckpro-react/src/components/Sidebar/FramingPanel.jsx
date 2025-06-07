@@ -1,7 +1,10 @@
 import useDeckStore from '../../store/deckStore'
 
 export function FramingPanel() {
-  const { engineOut } = useDeckStore()
+  const { project, selectedSectionId } = useDeckStore()
+  
+  const selectedSection = project.sections.find(s => s.id === selectedSectionId)
+  const engineOut = selectedSection?.structure?.engineOut
   
   if (!engineOut) return null
   
