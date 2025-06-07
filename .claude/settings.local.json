@@ -5,8 +5,26 @@
       "Bash(rm:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(node:*)",
+      "Bash(git checkout:*)",
+      "Bash(python3:*)",
+      "Bash(comm:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(cp:*)",
+      "Bash(curl:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }

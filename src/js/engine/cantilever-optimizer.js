@@ -64,8 +64,8 @@ function evaluateCantileverConfig(backSpan, cantilever, species, deckingType, de
         const joistStockLength = materials.getStockLength(joistLength, size);
         const joistCost = materials.lumber[size].costPerFoot * joistStockLength * joistCount;
         
-        // Calculate beam costs - use full deck width as joist span for IRC lookup
-        const beamConfig = selectBeam(deckLength, deckWidth, species, footingType);
+        // Calculate beam costs - use back-span as joist span for IRC lookup
+        const beamConfig = selectBeam(deckLength, backSpan, species, footingType);
         const beamCost = calculateBeamCost(beamConfig);
         
         // Calculate post costs (now included in beam cost calculation)

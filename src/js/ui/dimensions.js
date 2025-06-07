@@ -15,7 +15,12 @@ class DimensionLayer extends Layer {
   }
   
   draw(ctx) {
-    if (!this.footprint || this.footprint.width_ft < 1 || this.footprint.length_ft < 1) return;
+    if (!this.footprint) return;
+    
+    // Show dimensions during drawing even if small (for preview), 
+    // but only show final dimensions if >= 1 ft
+    const showPreview = this.footprint.width_ft >= 0.1 && this.footprint.length_ft >= 0.1;
+    if (!showPreview) return;
     
     const surface = this.surface;
     const { origin, width_ft, length_ft } = this.footprint;
@@ -117,3 +122,5 @@ class DimensionLayer extends Layer {
     }
   }
 }
+
+window.DimensionLayer = DimensionLayer;

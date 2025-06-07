@@ -12,11 +12,11 @@ class GridLayer extends Layer {
     const surface = this.surface;
     
     // Make sure we actually draw the grid on first render
-    console.log('Drawing grid with spacing:', this.spacing_in, 'zoom:', surface.zoom, 'visible:', this.visible);
+    logger.log('Drawing grid with spacing:', this.spacing_in, 'zoom:', surface.zoom, 'visible:', this.visible);
     
     // If grid is not visible, don't draw it
     if (!this.visible) {
-      console.log('Grid not visible, skipping draw');
+      logger.log('Grid not visible, skipping draw');
       return;
     }
     
@@ -27,7 +27,7 @@ class GridLayer extends Layer {
     // Ensure minimum spacing at any zoom level, but allow initial draw
     const minPixelSpacing = 5;
     if (spacingPx * surface.zoom < minPixelSpacing) {
-      console.log('Grid spacing too small, skipping:', spacingPx * surface.zoom, 'pixels');
+      logger.log('Grid spacing too small, skipping:', spacingPx * surface.zoom, 'pixels');
       return; // Skip drawing grid if too dense
     }
     
@@ -92,3 +92,5 @@ class GridLayer extends Layer {
     this.snap = enabled;
   }
 }
+
+window.GridLayer = GridLayer;

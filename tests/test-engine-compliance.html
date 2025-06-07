@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Engine Compliance Test</title>
+</head>
+<body>
+  <h1>Testing Engine Compliance</h1>
+  <div id="results"></div>
+  
+  <!-- Load all required scripts -->
+  <script src="../src/js/utils/logger.js"></script>
+  <script src="../src/data/materials.js"></script>
+  <script src="../src/data/span-tables.js"></script>
+  <script src="../src/js/engine/utils.js"></script>
+  <script src="../src/js/engine/validation.js"></script>
+  <script src="../src/js/engine/cantilever-optimizer.js"></script>
+  <script src="../src/js/engine/joist.js"></script>
+  <script src="../src/js/engine/beam.js"></script>
+  <script src="../src/js/engine/post.js"></script>
+  <script src="../src/js/engine/materials.js"></script>
+  <script src="../src/js/engine/index.js"></script>
+  
+  <script>
+    // Test the specific case mentioned
+    const testCase = {
+      width_ft: 16,
+      length_ft: 10,  // This makes joists span 10' and beams span 16'
+      height_ft: 2,
+      attachment: 'ledger',
+      footing_type: 'helical',
+      species_grade: 'SPF #2',
+      decking_type: 'composite_1in'
+    };
+    
+    console.log('Testing deck configuration:', testCase);
+    
+    try {
+      const result = computeStructure(testCase);
+      console.log('Engine output:', result);
+      
+      // Display results
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = `
+        <h2>Test Case: ${testCase.width_ft}' x ${testCase.length_ft}' deck</h2>
+        <h3>Joists:</h3>
+        <ul>
+          <li>Size: ${result.joists.size}</li>
+          <li>Spacing: ${result.joists.spacing_in}"</li>
+          <li>Span: ${result.joists.span_ft}'</li>
+          <li>Orientation: Spanning ${result.joists.orientation}</li>
+        </ul>
+        
+        <h3>Beams:</h3>
+        ${result.beams.map(beam => `
+          <h4>${beam.position} beam:</h4>
+          <ul>
+            <li>Style: ${beam.style}</li>
+            ${beam.size ? `<li>Size: ${beam.size}</li>` : ''}
+            ${beam.post_spacing_ft ? `<li>Post spacing: ${beam.post_spacing_ft.toFixed(1)}'</li>` : ''}
+            ${beam.post_count ? `<li>Post count: ${beam.post_count}</li>` : ''}
+          </ul>
+        `).join('')}
+        
+        <h3>Compliance:</h3>
+        <p>Status: <strong style="color: ${result.compliance.passes ? 'green' : 'red'}">${result.compliance.passes ? 'PASSES' : 'FAILS'}</strong></p>
+        ${result.compliance.warnings.length > 0 ? `
+          <p>Warnings:</p>
+          <ul>
+            ${result.compliance.warnings.map(w => `<li style="color: red">${w}</li>`).join('')}
+          </ul>
+        ` : '<p>No warnings - structure is code compliant!</p>'}
+      `;
+      
+    } catch (error) {
+      console.error('Engine error:', error);
+      document.getElementById('results').innerHTML = `
+        <p style="color: red">Error: ${error.message}</p>
+      `;
+    }
+  </script>
+</body>
+</html>

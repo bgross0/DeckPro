@@ -70,8 +70,12 @@ class ExportManager {
           this.exportCSV();
         }
       } catch (error) {
-        console.error('Export error:', error);
-        alert('Export failed: ' + error.message);
+        logger.error('Export error:', error);
+        if (window.showToast) {
+          showToast(`Export failed: ${error.message}`, 'error');
+        } else {
+          alert('Export failed: ' + error.message);
+        }
       }
     });
   }
@@ -84,16 +88,31 @@ class ExportManager {
     const filename = `deck-design-${timestamp}.png`;
     
     downloadFile(blob, filename, 'image/png');
+    
+    if (window.showToast) {
+      showToast('PNG exported successfully!', 'success');
+    }
   }
   
   exportCSV() {
     const state = this.store.getState();
     const materialTakeoff = state.engineOut?.material_takeoff || [];
     
+    if (materialTakeoff.length === 0) {
+      if (window.showToast) {
+        showToast('No materials to export. Generate structure first.', 'warning');
+      }
+      return;
+    }
+    
     const csv = exportCSV(materialTakeoff);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `deck-materials-${timestamp}.csv`;
     
     downloadFile(csv, filename, 'text/csv');
+    
+    if (window.showToast) {
+      showToast('CSV exported successfully!', 'success');
+    }
   }
 }

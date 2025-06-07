@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Structure Engine Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #000; color: #0f0; }
+        .test { margin: 10px 0; }
+        .pass { color: #0f0; }
+        .fail { color: #f00; }
+        .info { color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>🏗️ Structure Generation Engine Test</h1>
+    <div id="results"></div>
+
+    <!-- Load all dependencies in correct order -->
+    <script src="data/materials.js"></script>
+    <script src="data/span-tables.js"></script>
+    <script src="js/engine/utils.js"></script>
+    <script src="js/engine/post.js"></script>
+    <script src="js/engine/joist.js"></script>
+    <script src="js/engine/beam.js"></script>
+    <script src="js/engine/cantilever-optimizer.js"></script>
+    <script src="js/engine/validation.js"></script>
+    <script src="js/engine/materials.js"></script>
+    <script src="js/engine/index.js"></script>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.innerHTML = msg;
+            results.appendChild(div);
+        }
+
+        function runTests() {
+            log('Running comprehensive structure generation engine tests...', 'info');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            try {
+                // Test 1: Basic ledger-attached deck
+                totalTests++;
+                log('<br>Test 1: Basic 12x16 ledger-attached deck', 'info');
+                const test1 = {
+                    width_ft: 12,
+                    length_ft: 16,
+                    attachment: 'ledger',
+                    height_ft: 2,
+                    beam_style_outer: 'drop',
+                    footing_type: 'concrete',
+                    species_grade: 'SPF #2',
+                    decking_type: 'composite_1in',
+                    optimization_goal: 'cost'
+                };
+
+                const result1 = computeStructure(test1);
+                log(`  Joists: ${result1.joists.size} @ ${result1.joists.spacing_in}" O.C.`);
+                log(`  Span: ${result1.joists.span_ft}', Cantilever: ${result1.joists.cantilever_ft}'`);
+                log(`  Beams: ${result1.beams.length} beams`);
+                log(`  Posts: ${result1.posts.length} posts`);
+                log(`  Status: ${result1.status}`);
+                
+                if (result1.status === 'PASS' && result1.joists && result1.beams && result1.posts) {
+                    log('  ✅ Basic deck generation working', 'pass');
+                    passedTests++;
+                } else {
+                    log('  ❌ Basic deck generation failed', 'fail');
+                }
+
+                // Test 2: Freestanding deck
+                totalTests++;
+                log('<br>Test 2: Freestanding 16x20 deck', 'info');
+                const test2 = {
+                    width_ft: 16,
+                    length_ft: 20,
+                    attachment: 'free',
+                    height_ft: 3,
+                    beam_style_outer: 'drop',
+                    beam_style_inner: 'drop',
+                    footing_type: 'helical',
+                    species_grade: 'SPF #2',
+                    decking_type: 'composite_1in',
+                    optimization_goal: 'cost'
+                };
+
+                const result2 = computeStructure(test2);
+                log(`  Joists: ${result2.joists.size} @ ${result2.joists.spacing_in}" O.C.`);
+                log(`  Span: ${result2.joists.span_ft}', Cantilever: ${result2.joists.cantilever_ft}'`);
+                log(`  Beams: ${result2.beams.length} beams`);
+                log(`  Posts: ${result2.posts.length} posts`);
+                log(`  Status: ${result2.status}`);
+                
+                if (result2.status === 'PASS' && result2.beams.length >= 2) {
+                    log('  ✅ Freestanding deck generation working', 'pass');
+                    passedTests++;
+                } else {
+                    log('  ❌ Freestanding deck generation failed', 'fail');
+                }
+
+                // Test 3: Post positioning verification
+                totalTests++;
+                log('<br>Test 3: Post positioning verification', 'info');
+                let postsCorrect = true;
+                result2.posts.forEach((post, i) => {
+                    log(`  Post ${i + 1}: x=${post.x}', y=${post.y}'`);
+                    if (post.x < 0 || post.y < 0 || post.x > test2.length_ft || post.y > test2.width_ft) {
+                        log(`  ❌ Post ${i + 1} positioned outside deck bounds!`, 'fail');
+                        postsCorrect = false;
+                    }
+                });
+                
+                if (postsCorrect) {
+                    log('  ✅ Posts positioned within deck bounds', 'pass');
+                    passedTests++;
+                } else {
+                    log('  ❌ Posts positioned outside deck bounds', 'fail');
+                }
+
+                // Test 4: Material takeoff validation
+                totalTests++;
+                log('<br>Test 4: Material takeoff validation', 'info');
+                if (result1.material_takeoff && result1.material_takeoff.length > 0) {
+                    log(`  Materials count: ${result1.material_takeoff.length} items`);
+                    
+                    const hasJoists = result1.material_takeoff.some(item => item.item.includes('Joist'));
+                    const hasBeams = result1.material_takeoff.some(item => item.item.includes('Beam'));
+                    const hasPosts = result1.material_takeoff.some(item => item.item.includes('Post'));
+                    const hasHardware = result1.material_takeoff.some(item => 
+                        item.item.includes('hanger') || item.item.includes('LUS'));
+                    
+                    log(`  Has joists: ${hasJoists ? '✅' : '❌'}`);
+                    log(`  Has beams: ${hasBeams ? '✅' : '❌'}`);
+                    log(`  Has posts: ${hasPosts ? '✅' : '❌'}`);
+                    log(`  Has hardware: ${hasHardware ? '✅' : '❌'}`);
+                    
+                    if (hasJoists && hasBeams && hasPosts) {
+                        log('  ✅ Material takeoff complete', 'pass');
+                        passedTests++;
+                    } else {
+                        log('  ❌ Material takeoff missing components', 'fail');
+                    }
+                } else {
+                    log('  ❌ No material takeoff generated', 'fail');
+                }
+
+                // Test 5: Span table compliance
+                totalTests++;
+                log('<br>Test 5: Span table compliance verification', 'info');
+                const joist = result1.joists;
+                const speciesGrade = test1.species_grade;
+                const spacing = joist.spacing_in;
+                
+                // Check if joist size is appropriate for span
+                const spanTable = spanTables.joists[speciesGrade][joist.size];
+                const allowableSpan = spanTable ? spanTable[spacing] : 0;
+                
+                log(`  Joist: ${joist.size}, Span: ${joist.span_ft}', Allowable: ${allowableSpan}'`);
+                
+                if (joist.span_ft <= allowableSpan) {
+                    log('  ✅ Joist span within allowable limits', 'pass');
+                    passedTests++;
+                } else {
+                    log(`  ❌ Joist span ${joist.span_ft}' exceeds allowable ${allowableSpan}'`, 'fail');
+                }
+
+                // Summary
+                log(`<br><b>🎯 Test Summary: ${passedTests}/${totalTests} tests passed</b>`, 
+                    passedTests === totalTests ? 'pass' : 'fail');
+                
+                if (passedTests === totalTests) {
+                    log('✅ ALL STRUCTURE ENGINE TESTS PASSED', 'pass');
+                    log('The incremental extractions have NOT broken the structure generation engine.', 'pass');
+                } else {
+                    log('❌ SOME TESTS FAILED - STRUCTURE ENGINE MAY BE COMPROMISED', 'fail');
+                }
+
+            } catch (error) {
+                log(`❌ CRITICAL ENGINE ERROR: ${error.message}`, 'fail');
+                log(`Stack: ${error.stack}`, 'fail');
+                log('🚨 STRUCTURE ENGINE IS BROKEN!', 'fail');
+            }
+        }
+
+        // Run tests when page loads
+        window.onload = runTests;
+    </script>
+</body>
+</html>

@@ -12,7 +12,7 @@ class DrawingSurface {
     this.setupEventListeners();
     
     // Make sure we're properly zoomed to see the grid
-    console.log('Initial drawing surface setup with zoom:', this.zoom);
+    logger.log('Initial drawing surface setup with zoom:', this.zoom);
   }
   
   setupCanvas() {
@@ -22,7 +22,7 @@ class DrawingSurface {
     
     // Ensure we have valid dimensions
     if (rect.width === 0 || rect.height === 0) {
-      console.warn('Canvas has zero dimensions, using fallback values');
+      logger.warn('Canvas has zero dimensions, using fallback values');
       this.canvas.width = 800 * dpr;
       this.canvas.height = 600 * dpr;
       this.canvas.style.width = '800px';
@@ -41,7 +41,7 @@ class DrawingSurface {
     this.pan.x = this.canvas.width / (2 * dpr);
     this.pan.y = this.canvas.height / (2 * dpr);
     
-    console.log('Canvas setup complete:', {
+    logger.log('Canvas setup complete:', {
       width: this.canvas.width,
       height: this.canvas.height,
       dpr: dpr,
@@ -71,14 +71,28 @@ class DrawingSurface {
   }
   
   draw() {
+    // Throttle redraws for performance
+    if (this._drawPending) return this;
+    this._drawPending = true;
+    
+    requestAnimationFrame(() => {
+      this._drawPending = false;
+      this._performDraw();
+    });
+    
+    return this;
+  }
+  
+  _performDraw() {
     this.clear();
     
     this.ctx.save();
     this.ctx.translate(this.pan.x, this.pan.y);
     this.ctx.scale(this.zoom, this.zoom);
     
+    // Only draw visible layers
     this.layers.forEach(layer => {
-      if (layer.visible) {
+      if (layer.visible && this._isLayerInView(layer)) {
         this.ctx.save();
         layer.draw(this.ctx);
         this.ctx.restore();
@@ -86,7 +100,12 @@ class DrawingSurface {
     });
     
     this.ctx.restore();
-    return this;
+  }
+  
+  _isLayerInView(layer) {
+    // Simple viewport culling - always draw for now
+    // Could be optimized for large drawings
+    return true;
   }
   
   setupEventListeners() {
@@ -100,8 +119,25 @@ class DrawingSurface {
       document.body.classList.add('touch-device');
     }
     
-    // Mouse events for panning
+    // Mobile drawing state tracking
+    this.isDrawingMode = false;
+    this.drawingTouchId = null;
+    
+    // Mouse events for drawing and panning
     this.canvas.addEventListener('mousedown', (e) => {
+      // Handle drawing with left mouse button
+      if (e.button === 0) {
+        // Find the footprint layer and delegate drawing
+        const footprintLayer = this.layers.find(l => l.id === 'footprint');
+        if (footprintLayer && footprintLayer.handleMouseDown) {
+          const handled = footprintLayer.handleMouseDown(e);
+          if (handled) {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+      
       // Only pan with middle mouse button or right-click + shift
       if (e.button === 1 || (e.button === 2 && e.shiftKey)) {
         isPanning = true;
@@ -112,6 +148,13 @@ class DrawingSurface {
     });
     
     this.canvas.addEventListener('mousemove', (e) => {
+      // Handle drawing mouse move
+      const footprintLayer = this.layers.find(l => l.id === 'footprint');
+      if (footprintLayer && footprintLayer.handleMouseMove) {
+        footprintLayer.handleMouseMove(e);
+      }
+      
+      // Handle panning
       if (isPanning) {
         const dx = e.clientX - lastX;
         const dy = e.clientY - lastY;
@@ -126,7 +169,13 @@ class DrawingSurface {
       }
     });
     
-    this.canvas.addEventListener('mouseup', () => {
+    this.canvas.addEventListener('mouseup', (e) => {
+      // Handle drawing mouse up
+      const footprintLayer = this.layers.find(l => l.id === 'footprint');
+      if (footprintLayer && footprintLayer.handleMouseUp) {
+        footprintLayer.handleMouseUp(e);
+      }
+      
       isPanning = false;
     });
     
@@ -160,9 +209,9 @@ class DrawingSurface {
       this.draw();
     });
     
-    // Touch events for panning (one finger)
+    // Touch events for panning (one finger) - only when not drawing
     this.canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
+      if (e.touches.length === 1 && !this.isDrawingMode) {
         isPanning = true;
         lastX = e.touches[0].clientX;
         lastY = e.touches[0].clientY;
@@ -170,7 +219,7 @@ class DrawingSurface {
     });
     
     this.canvas.addEventListener('touchmove', (e) => {
-      if (isPanning && e.touches.length === 1) {
+      if (isPanning && e.touches.length === 1 && !this.isDrawingMode) {
         const dx = e.touches[0].clientX - lastX;
         const dy = e.touches[0].clientY - lastY;
         
@@ -266,17 +315,19 @@ class DrawingSurface {
   pixelsToFeet(pixels) {
     return pixels / this.pixelsPerFoot;
   }
+  
+  setDrawingMode(enabled) {
+    this.isDrawingMode = enabled;
+    logger.log('Drawing mode set to:', enabled);
+    
+    // Add visual feedback for drawing mode
+    if (enabled) {
+      document.body.classList.add('drawing-active');
+    } else {
+      document.body.classList.remove('drawing-active');
+    }
+  }
 }
 
-// Base Layer class
-class Layer {
-  constructor(id, options = {}) {
-    this.id = id;
-    this.visible = options.visible !== false;
-    this.zIndex = options.zIndex || 0;
-  }
-  
-  draw(ctx) {
-    // Override in subclasses
-  }
-}
+// Make DrawingSurface available globally
+window.DrawingSurface = DrawingSurface;

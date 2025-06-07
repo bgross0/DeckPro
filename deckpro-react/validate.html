@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeckPro Validation Tests</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .passed { color: #4ade80; }
+        .failed { color: #f87171; }
+        .warning { color: #fbbf24; }
+        #results {
+            background: #262626;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        pre { margin: 0; }
+    </style>
+</head>
+<body>
+    <h1>DeckPro GUI Validation</h1>
+    <button id="runTests">Run Validation Tests</button>
+    <div id="results"></div>
+    
+    <script type="module">
+        import { runValidation } from './src/test-validation.jsx';
+        
+        document.getElementById('runTests').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Running tests...</p>';
+            
+            try {
+                const results = await runValidation();
+                
+                let html = '<h2>Test Results</h2>';
+                html += `<p class="passed">✅ Passed: ${results.passed.length}</p>`;
+                html += `<p class="failed">❌ Failed: ${results.failed.length}</p>`;
+                html += `<p class="warning">⚠️ Warnings: ${results.warnings.length}</p>`;
+                
+                if (results.passed.length > 0) {
+                    html += '<h3>Passed Tests:</h3>';
+                    results.passed.forEach(test => {
+                        html += `<p class="passed">✓ ${test.message}</p>`;
+                    });
+                }
+                
+                if (results.failed.length > 0) {
+                    html += '<h3>Failed Tests:</h3>';
+                    results.failed.forEach(test => {
+                        html += `<p class="failed">✗ ${test.message}</p>`;
+                        if (test.details) {
+                            html += `<pre>${JSON.stringify(test.details, null, 2)}</pre>`;
+                        }
+                    });
+                }
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="failed">Test runner error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

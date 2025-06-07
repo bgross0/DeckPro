@@ -65,7 +65,7 @@ function computeStructure(payload) {
   });
   
   // Inner beam/ledger
-  console.log('Determining inner beam/ledger. Attachment:', input.attachment);
+  logger.log('Determining inner beam/ledger. Attachment:', input.attachment);
   
   if (input.attachment === 'ledger') {
     beams.push({
@@ -74,7 +74,7 @@ function computeStructure(payload) {
     });
   } else {
     // For freestanding (or any non-ledger), add inner beam
-    console.log('Creating inner beam for freestanding deck');
+    logger.log('Creating inner beam for freestanding deck');
     const innerBeam = selectBeam(beamSpan, joistSpan, input.species_grade, input.footing_type);
     const innerBeamData = {
       position: 'inner',
@@ -88,12 +88,12 @@ function computeStructure(payload) {
       segments: innerBeam.segments,
       spliced: innerBeam.spliced || false
     };
-    console.log('Inner beam data:', innerBeamData);
+    logger.log('Inner beam data:', innerBeamData);
     beams.push(innerBeamData);
   }
   
-  console.log('Total beams:', beams.length);
-  console.log('Beams:', beams);
+  logger.log('Total beams:', beams.length);
+  logger.log('Beams:', beams);
   
   // Generate posts with correct positions based on orientation
   // When joists span width (horizontal), beams run vertically along length, posts positioned across width
@@ -125,8 +125,29 @@ function computeStructure(payload) {
   // Check compliance
   const warnings = checkCompliance(input, frame);
   
+  // Add hardware compliance validation
+  if (takeoff.detailedHardware) {
+    const deckConfig = {
+      species: input.species_grade,
+      footingType: input.footing_type,
+      hasLedger: frame.beams.some(b => b.style === 'ledger'),
+      hasCantilever: frame.joists.cantilever_ft > 0
+    };
+    const hardwareWarnings = validateHardwareCompliance(frame, deckConfig, takeoff.detailedHardware);
+    warnings.push(...hardwareWarnings);
+  }
+  
   // Format output
   return {
+    input: {
+      width_ft: input.width_ft,
+      length_ft: input.length_ft,
+      height_ft: input.height_ft,
+      attachment: input.attachment,
+      footing_type: input.footing_type,
+      species_grade: input.species_grade,
+      decking_type: input.decking_type
+    },
     optimization_goal: input.optimization_goal,
     joists: {
       size: joists.size,
@@ -152,6 +173,7 @@ function computeStructure(payload) {
     material_takeoff: takeoff.items,
     metrics,
     compliance: {
+      passes: warnings.length === 0,
       joist_table: 'IRC-2021 R507.6(1)',
       beam_table: 'IRC-2021 R507.5(1)',
       assumptions: ['IRC default loads'],
@@ -185,5 +207,36 @@ function checkCompliance(input, frame) {
     warnings.push('Cantilever exceeds 1/4 of back-span');
   }
   
+  // Validate beam spans against code tables
+  frame.beams.forEach(beam => {
+    if (beam.style !== 'ledger' && beam.post_spacing_ft && beam.size) {
+      // Get the allowable span from tables
+      const beamTable = spanTables.beams[input.species_grade];
+      if (beamTable && beamTable[beam.size]) {
+        // Find the joist span value for table lookup
+        const joistSpan = frame.joists.span_ft;
+        const tableJoistSpans = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20];
+        const tableJoistSpan = tableJoistSpans.find(s => s >= joistSpan) || 20;
+        
+        const allowableSpan = beamTable[beam.size][tableJoistSpan];
+        if (allowableSpan && beam.post_spacing_ft > allowableSpan) {
+          warnings.push(`${beam.position} beam ${beam.size} post spacing ${beam.post_spacing_ft.toFixed(1)}' exceeds allowable ${allowableSpan.toFixed(1)}' for ${joistSpan.toFixed(1)}' joist span`);
+        }
+      }
+    }
+  });
+  
+  // Validate joist spans against code tables
+  const joistTable = spanTables.joists[input.species_grade];
+  if (joistTable && joistTable[frame.joists.size]) {
+    const allowableJoistSpan = joistTable[frame.joists.size][frame.joists.spacing_in];
+    if (allowableJoistSpan && frame.joists.span_ft > allowableJoistSpan) {
+      warnings.push(`Joist ${frame.joists.size} @ ${frame.joists.spacing_in}" spacing span ${frame.joists.span_ft.toFixed(1)}' exceeds allowable ${allowableJoistSpan.toFixed(1)}'`);
+    }
+  }
+  
   return warnings;
 }
+
+// Export main function globally
+window.computeStructure = computeStructure;
