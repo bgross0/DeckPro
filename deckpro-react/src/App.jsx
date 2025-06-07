@@ -50,36 +50,22 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4 relative z-10">
-          {/* Enhanced Logo */}
+          {/* Modern Logo */}
           <div className="relative">
-            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl shadow-lg border-2 border-orange-300/50">
-              <svg 
-                className="w-8 h-8 text-white drop-shadow-sm" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2.5}
-                  d="M3 21h18M4 21V7l8-4 8 4v14M8 21V11h8v10M12 7V3"
-                />
-              </svg>
+            <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center shadow-lg border border-gray-800">
+              <span className="font-bold text-lg bg-gradient-to-br from-blue-400 via-teal-500 to-green-500 bg-clip-text text-transparent">D</span>
             </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-slate-800 shadow-sm"></div>
           </div>
           
           {/* Enhanced Brand Text */}
           <div className="flex flex-col">
             <h1 className="text-2xl font-black text-white leading-none tracking-tight">
               <span className="text-white">Deck</span>
-              <span className="bg-gradient-to-r from-orange-300 to-orange-100 bg-clip-text text-transparent">Pro</span>
+              <span className="bg-gradient-to-br from-blue-400 via-teal-500 to-green-500 bg-clip-text text-transparent">Pro</span>
             </h1>
             <div className="flex items-center space-x-2 mt-0.5">
               <p className="text-sm text-slate-300 font-semibold">Professional Deck Design Suite</p>
-              <div className="w-1 h-1 bg-orange-400 rounded-full"></div>
+              <div className="w-1 h-1 bg-gradient-to-r from-blue-400 to-green-500 rounded-full"></div>
               <span className="text-xs text-slate-400 font-medium">CAD Edition</span>
             </div>
           </div>
