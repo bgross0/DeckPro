@@ -52,7 +52,7 @@ function App() {
         <div className="flex items-center space-x-4 relative z-10">
           {/* Logo */}
           <div className="relative">
-            <img src="/deckprologo.ico" alt="DeckPro Logo" className="w-10 h-10 rounded-lg shadow-lg" />
+            <img src="/deckprologopng.png" alt="DeckPro Logo" className="w-10 h-10 rounded-lg shadow-lg object-contain" />
           </div>
           
           {/* Enhanced Brand Text */}
