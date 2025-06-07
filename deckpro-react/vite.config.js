@@ -15,6 +15,28 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: true
+    sourcemap: false, // Disable for production
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'konva-vendor': ['konva', 'react-konva'],
+          'ui-vendor': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-label', '@radix-ui/react-select', '@radix-ui/react-slot', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          'utils': ['clsx', 'tailwind-merge', 'zustand']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    reportCompressedSize: false
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'konva', 'react-konva']
   }
 })

@@ -50,6 +50,7 @@ export function MainToolbar() {
   const gridDropdownRef = useRef(null)
   const exportDropdownRef = useRef(null)
   const layersDropdownRef = useRef(null)
+  const toolbarRef = useRef(null)
 
   // Grid spacing options
   const gridSpacingOptions = [
@@ -79,9 +80,24 @@ export function MainToolbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Keyboard navigation for dropdowns
+  useEffect(() => {
+    function handleKeyDown(event) {
+      // Close dropdowns on Escape
+      if (event.key === 'Escape') {
+        setShowGridSettings(false)
+        setShowExportMenu(false)
+        setShowLayersMenu(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Custom icon components
   const PolygonIcon = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
       <path d="M12 3 L20 8 L20 16 L12 21 L4 16 L4 8 Z" />
       <circle cx="12" cy="3" r="2" fill="currentColor" />
       <circle cx="20" cy="8" r="2" fill="currentColor" />
@@ -93,14 +109,14 @@ export function MainToolbar() {
   )
 
   const StairsIcon = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
       <path d="M4 20 L4 16 L8 16 L8 12 L12 12 L12 8 L16 8 L16 4 L20 4" />
       <path d="M4 20 L20 20 L20 4" strokeWidth="1" opacity="0.3" />
     </svg>
   )
 
   const RectangleIcon = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
       <rect x="4" y="6" width="16" height="12" rx="1" />
       <circle cx="4" cy="6" r="2" fill="currentColor" />
       <circle cx="20" cy="6" r="2" fill="currentColor" />
@@ -204,82 +220,120 @@ export function MainToolbar() {
   return (
     <div className="absolute top-4 left-4 z-30">
       {/* Single cohesive toolbar */}
-      <div className="bg-white rounded-lg shadow-lg p-2">
+      <nav 
+        ref={toolbarRef}
+        className="bg-white rounded-lg shadow-lg p-2"
+        role="toolbar"
+        aria-label="Main toolbar"
+      >
         <div className="flex items-center gap-1">
           {/* Drawing Tools */}
-          <div className="flex items-center gap-1 pr-2 border-r">
+          <div 
+            className="flex items-center gap-1 pr-2 border-r"
+            role="group"
+            aria-label="Drawing tools"
+          >
             {tools.map((t) => (
               <button
                 key={t.id}
                 className={`tool-button ${tool === t.id ? 'active' : ''}`}
                 onClick={() => setTool(t.id)}
+                aria-label={t.label}
+                aria-keyshortcuts={t.hotkey.toUpperCase()}
+                aria-pressed={tool === t.id}
                 title={`${t.label} (${t.hotkey.toUpperCase()})`}
               >
-                <t.icon className="w-5 h-5" />
+                <t.icon className="w-5 h-5" aria-hidden="true" />
               </button>
             ))}
           </div>
 
           {/* Action Tools */}
-          <div className="flex items-center gap-1 px-2 border-r">
+          <div 
+            className="flex items-center gap-1 px-2 border-r"
+            role="group"
+            aria-label="Action tools"
+          >
             <button
               className="tool-button"
               onClick={handleUndo}
-              title="Undo (Ctrl+Z)"
+              aria-label="Undo last action"
+              aria-keyshortcuts="Control+Z"
               disabled={!canUndo()}
+              title="Undo (Ctrl+Z)"
             >
-              <Undo className="w-5 h-5" />
+              <Undo className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               className="tool-button"
               onClick={handleRedo}
-              title="Redo (Ctrl+Y)"
+              aria-label="Redo last action"
+              aria-keyshortcuts="Control+Y"
               disabled={!canRedo()}
+              title="Redo (Ctrl+Y)"
             >
-              <Redo className="w-5 h-5" />
+              <Redo className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               className="tool-button"
               onClick={handleClearCanvas}
+              aria-label="Clear canvas"
+              aria-keyshortcuts="Delete"
               title="Clear Canvas (Delete)"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
           {/* View Tools */}
-          <div className="flex items-center gap-1 px-2 border-r">
+          <div 
+            className="flex items-center gap-1 px-2 border-r"
+            role="group"
+            aria-label="View controls"
+          >
             <button
               className="tool-button"
               onClick={handleZoomIn}
+              aria-label="Zoom in"
               title="Zoom In"
             >
-              <ZoomIn className="w-5 h-5" />
+              <ZoomIn className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               className="tool-button"
               onClick={handleZoomOut}
+              aria-label="Zoom out"
               title="Zoom Out"
             >
-              <ZoomOut className="w-5 h-5" />
+              <ZoomOut className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
           {/* Grid Controls */}
-          <div className="flex items-center gap-1 px-2 border-r">
+          <div 
+            className="flex items-center gap-1 px-2 border-r"
+            role="group"
+            aria-label="Grid controls"
+          >
             <button
               className={`tool-button ${gridCfg.visible ? '' : 'opacity-50'}`}
               onClick={() => updateGridCfg({ visible: !gridCfg.visible })}
+              aria-label={gridCfg.visible ? 'Hide grid' : 'Show grid'}
+              aria-keyshortcuts="G"
+              aria-pressed={gridCfg.visible}
               title={gridCfg.visible ? 'Hide Grid (G)' : 'Show Grid (G)'}
             >
-              {gridCfg.visible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+              {gridCfg.visible ? <Eye className="w-5 h-5" aria-hidden="true" /> : <EyeOff className="w-5 h-5" aria-hidden="true" />}
             </button>
             <button
               className={`tool-button ${gridCfg.snap ? 'active' : ''}`}
               onClick={() => updateGridCfg({ snap: !gridCfg.snap })}
+              aria-label={gridCfg.snap ? 'Disable snap to grid' : 'Enable snap to grid'}
+              aria-keyshortcuts="Shift+G"
+              aria-pressed={gridCfg.snap}
               title={gridCfg.snap ? 'Disable Snap (Shift+G)' : 'Enable Snap (Shift+G)'}
             >
-              <Grid3x3 className="w-5 h-5" />
+              <Grid3x3 className="w-5 h-5" aria-hidden="true" />
             </button>
             <div className="relative" ref={gridDropdownRef}>
               <button
@@ -287,18 +341,26 @@ export function MainToolbar() {
                 onClick={() => {
                   setShowGridSettings(!showGridSettings)
                 }}
+                aria-label="Grid settings"
+                aria-expanded={showGridSettings}
+                aria-haspopup="true"
                 title="Grid Settings"
               >
-                <Grid className="w-5 h-5" />
+                <Grid className="w-5 h-5" aria-hidden="true" />
               </button>
 
               {/* Grid Settings Dropdown */}
               {showGridSettings && (
-                <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-4 min-w-[240px]" style={{ zIndex: 9999 }}>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Grid Spacing</h4>
-                  <div className="space-y-2">
+                <div 
+                  className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-4 min-w-[240px]" 
+                  style={{ zIndex: 9999 }}
+                  role="dialog"
+                  aria-label="Grid settings menu"
+                >
+                  <h4 className="text-sm font-medium text-gray-700 mb-3" id="grid-spacing-label">Grid Spacing</h4>
+                  <div className="space-y-2" role="radiogroup" aria-labelledby="grid-spacing-label">
                     {gridSpacingOptions.map(option => (
-                      <label key={option.value} className="flex items-center gap-3 cursor-pointer">
+                      <label key={option.value} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                         <input
                           type="radio"
                           name="gridSpacing"
@@ -306,6 +368,7 @@ export function MainToolbar() {
                           checked={gridCfg.spacing_in === option.value}
                           onChange={() => updateGridCfg({ spacing_in: option.value })}
                           className="text-blue-600"
+                          aria-label={`Grid spacing ${option.label}`}
                         />
                         <span className="text-sm">{option.label}</span>
                       </label>
@@ -314,7 +377,7 @@ export function MainToolbar() {
 
                   {/* Custom Size Input */}
                   <div className="mt-4 pt-4 border-t">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Custom Size</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2" id="custom-size-label">Custom Size</h4>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -336,9 +399,11 @@ export function MainToolbar() {
                           }
                         }}
                         placeholder="Inches"
-                        className="px-2 py-1 border rounded text-sm w-20"
+                        className="px-2 py-1 border rounded text-sm w-20 focus:border-blue-500"
                         min="1"
                         max="120"
+                        aria-label="Custom grid spacing in inches"
+                        aria-describedby="custom-size-help"
                       />
                       <button
                         onClick={() => {
@@ -352,31 +417,34 @@ export function MainToolbar() {
                           }
                         }}
                         disabled={!customGridSize || parseInt(customGridSize) <= 0 || parseInt(customGridSize) > 120}
-                        className="px-2 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-2 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+                        aria-label="Set custom grid spacing"
                       >
                         Set
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">1-120 inches</p>
+                    <p id="custom-size-help" className="text-xs text-gray-500 mt-1">1-120 inches</p>
                   </div>
 
                   <div className="mt-4 pt-4 border-t">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={gridCfg.visible}
                         onChange={(e) => updateGridCfg({ visible: e.target.checked })}
                         className="text-blue-600"
+                        aria-label="Show grid"
                       />
                       <span className="text-sm">Show Grid</span>
                     </label>
                     
-                    <label className="flex items-center gap-3 cursor-pointer mt-2">
+                    <label className="flex items-center gap-3 cursor-pointer mt-2 hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={gridCfg.snap}
                         onChange={(e) => updateGridCfg({ snap: e.target.checked })}
                         className="text-blue-600"
+                        aria-label="Snap to grid"
                       />
                       <span className="text-sm">Snap to Grid</span>
                     </label>
@@ -388,76 +456,93 @@ export function MainToolbar() {
 
           {/* Layer Controls */}
           <div className="relative" ref={layersDropdownRef}>
-            <div className="flex items-center gap-1 px-2 border-r">
+            <div 
+              className="flex items-center gap-1 px-2 border-r"
+              role="group"
+              aria-label="Layer controls"
+            >
               <button
                 className={`tool-button ${showLayersMenu ? 'active' : ''}`}
                 onClick={() => setShowLayersMenu(!showLayersMenu)}
+                aria-label="Layer controls"
+                aria-expanded={showLayersMenu}
+                aria-haspopup="true"
                 title="Layer Controls"
               >
-                <Layers className="w-5 h-5" />
+                <Layers className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
             
             {/* Layers Dropdown */}
             {showLayersMenu && (
-              <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-4 min-w-[200px]" style={{ zIndex: 9999 }}>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Toggle Layers</h4>
+              <div 
+                className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-4 min-w-[200px]" 
+                style={{ zIndex: 9999 }}
+                role="dialog"
+                aria-label="Layer controls menu"
+              >
+                <h4 className="text-sm font-medium text-gray-700 mb-3" id="toggle-layers-label">Toggle Layers</h4>
                 
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
+                <div className="space-y-2" role="group" aria-labelledby="toggle-layers-label">
+                  <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={showDimensions}
                       onChange={() => toggleLayer('dimensions')}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      aria-label="Show dimensions"
                     />
                     <span className="text-sm">Dimensions</span>
                   </label>
                   
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={showJoists}
                       onChange={() => toggleLayer('joists')}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      aria-label="Show joists"
                     />
                     <span className="text-sm">Joists</span>
                   </label>
                   
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={showBeams}
                       onChange={() => toggleLayer('beams')}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      aria-label="Show beams"
                     />
                     <span className="text-sm">Beams</span>
                   </label>
                   
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={showPosts}
                       onChange={() => toggleLayer('posts')}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      aria-label="Show posts"
                     />
                     <span className="text-sm">Posts</span>
                   </label>
                   
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={showDecking}
                       onChange={() => toggleLayer('decking')}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      aria-label="Show decking"
                     />
                     <span className="text-sm">Decking</span>
                   </label>
                 </div>
                 
                 <div className="mt-4 pt-4 border-t">
-                  <h5 className="text-xs font-medium text-gray-600 mb-2">Quick Presets</h5>
-                  <div className="space-y-1">
+                  <h5 className="text-xs font-medium text-gray-600 mb-2" id="quick-presets-label">Quick Presets</h5>
+                  <div className="space-y-1" role="group" aria-labelledby="quick-presets-label">
                     <button
                       onClick={() => {
                         setActiveLayer('all');
@@ -467,7 +552,8 @@ export function MainToolbar() {
                         if (!showPosts) toggleLayer('posts');
                         if (!showDecking) toggleLayer('decking');
                       }}
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-xs text-blue-600 hover:underline rounded px-1"
+                      aria-label="Show all layers"
                     >
                       Show All
                     </button>
@@ -480,7 +566,8 @@ export function MainToolbar() {
                         if (showDecking) toggleLayer('decking');
                         if (showDimensions) toggleLayer('dimensions');
                       }}
-                      className="text-xs text-blue-600 hover:underline block"
+                      className="text-xs text-blue-600 hover:underline block focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+                      aria-label="Show framing layers only"
                     >
                       Framing Only
                     </button>
@@ -492,7 +579,8 @@ export function MainToolbar() {
                         if (showPosts) toggleLayer('posts');
                         if (showDecking) toggleLayer('decking');
                       }}
-                      className="text-xs text-blue-600 hover:underline block"
+                      className="text-xs text-blue-600 hover:underline block focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+                      aria-label="Show footprint only"
                     >
                       Footprint Only
                     </button>
@@ -503,23 +591,30 @@ export function MainToolbar() {
           </div>
 
           {/* Generate Structure Button */}
-          <div className="flex items-center gap-1 px-2 border-r">
+          <div 
+            className="flex items-center gap-1 px-2 border-r"
+            role="group"
+            aria-label="Structure generation"
+          >
             <button
               onClick={generateAllStructures}
               disabled={loading || project.sections.length === 0}
               className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1"
+              aria-label={loading ? "Generating structure" : "Generate structure"}
+              aria-busy={loading}
+              aria-disabled={loading || project.sections.length === 0}
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Generating...
+                  <span aria-live="polite">Generating...</span>
                 </>
               ) : (
                 <>
-                  <Hammer className="w-4 h-4" />
+                  <Hammer className="w-4 h-4" aria-hidden="true" />
                   Generate Structure
                 </>
               )}
@@ -527,52 +622,73 @@ export function MainToolbar() {
           </div>
 
           {/* Project Tools */}
-          <div className="flex items-center gap-1 px-2 border-r">
+          <div 
+            className="flex items-center gap-1 px-2 border-r"
+            role="group"
+            aria-label="Project management"
+          >
             <button
               className="tool-button"
               onClick={handleNewProject}
+              aria-label="New project"
               title="New Project"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               className="tool-button"
               onClick={handleSaveProject}
+              aria-label="Save project"
               title="Save Project"
             >
-              <Save className="w-5 h-5" />
+              <Save className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               className="tool-button"
               onClick={handleLoadProject}
+              aria-label="Load project"
               title="Load Project"
             >
-              <FolderOpen className="w-5 h-5" />
+              <FolderOpen className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
           {/* Export and Settings */}
-          <div className="flex items-center gap-1 pl-2">
+          <div 
+            className="flex items-center gap-1 pl-2"
+            role="group"
+            aria-label="Export and settings"
+          >
             {/* Export Menu */}
             <div className="relative" ref={exportDropdownRef}>
               <button
                 className="tool-button"
                 onClick={() => setShowExportMenu(!showExportMenu)}
+                aria-label="Export options"
+                aria-expanded={showExportMenu}
+                aria-haspopup="true"
                 title="Export"
               >
-                <Download className="w-5 h-5" />
+                <Download className="w-5 h-5" aria-hidden="true" />
               </button>
               {showExportMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-2 min-w-[150px]" style={{ zIndex: 9999 }}>
+                <div 
+                  className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-2xl border-2 border-gray-300 p-2 min-w-[150px]" 
+                  style={{ zIndex: 9999 }}
+                  role="menu"
+                  aria-label="Export format options"
+                >
                   <button
                     onClick={handleExportPNG}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                    role="menuitem"
                   >
                     Export as PNG
                   </button>
                   <button
                     onClick={handleExportCSV}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                    role="menuitem"
                   >
                     Export as CSV
                   </button>
@@ -584,25 +700,33 @@ export function MainToolbar() {
             <button
               className="tool-button"
               onClick={() => setShowSettingsModal(true)}
+              aria-label="Settings"
               title="Settings"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-5 h-5" aria-hidden="true" />
             </button>
 
             {/* Help */}
             <button
               className="tool-button"
               onClick={() => setShowHelpModal(true)}
+              aria-label="Help"
+              aria-keyshortcuts="F1"
               title="Help (F1)"
             >
-              <HelpCircle className="w-5 h-5" />
+              <HelpCircle className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Grid Status - Below toolbar */}
-      <div className="mt-2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-75 inline-block">
+      <div 
+        className="mt-2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-75 inline-block"
+        role="status"
+        aria-live="polite"
+        aria-label={`Grid spacing: ${gridCfg.spacing_in} inches. Snap to grid is ${gridCfg.snap ? 'enabled' : 'disabled'}`}
+      >
         Grid: {gridCfg.spacing_in}" {gridCfg.snap ? '• Snap ON' : '• Snap OFF'}
       </div>
       

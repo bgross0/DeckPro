@@ -2,8 +2,17 @@ import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Stage, Layer, Line, Circle, Text, Group, Rect, Arrow } from 'react-konva';
 import useDeckStore from '../../store/deckStore';
 import { logger } from '../../utils/logger';
-
-const PIXELS_PER_FOOT = 20;
+import { useCanvasSize } from '../../hooks/useCanvasSize';
+import { 
+  PIXELS_PER_FOOT, 
+  VIEWPORT_CONSTRAINTS,
+  fitToContent,
+  calculateZoom,
+  getAdaptiveGridSpacing,
+  getResponsiveScale
+} from '../../utils/viewport';
+import { throttle } from '../../lib/utils';
+import ViewportControls from './ViewportControls';
 
 // Check if a point is inside a polygon using ray casting algorithm
 function isPointInPolygon(point, polygon) {
@@ -64,30 +73,33 @@ export default function PolygonCanvas() {
     completeStair
   } = useDeckStore();
 
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const containerRef = useRef(null);
+  const stageRef = useRef(null);
+  
+  // Use responsive canvas sizing
+  const dimensions = useCanvasSize(containerRef);
+  
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [stageScale, setStageScale] = useState(1);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [localPreviewPoint, setLocalPreviewPoint] = useState(null);
+  const [lastCenter, setLastCenter] = useState(null);
+  const [lastDist, setLastDist] = useState(0);
   
-  const containerRef = useRef(null);
-  const stageRef = useRef(null);
-
-  // Update dimensions on mount and resize
+  // Apply responsive scale factor
+  const responsiveScale = useMemo(() => 
+    getResponsiveScale(dimensions.width),
+    [dimensions.width]
+  );
+  
+  // Fit to content when sections change
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
+    if (project.sections.length > 0 && dimensions.width > 0) {
+      const viewport = fitToContent(project.sections, dimensions);
+      setStagePos({ x: viewport.x, y: viewport.y });
+      setStageScale(viewport.scale * responsiveScale);
+    }
+  }, [project.sections.length, dimensions, responsiveScale]);
 
   // Handle escape key to cancel drawing
   useEffect(() => {
@@ -127,8 +139,8 @@ export default function PolygonCanvas() {
     };
   };
 
-  // Mouse handlers
-  const handleMouseDown = (e) => {
+  // Touch/Mouse handlers
+  const handlePointerDown = (e) => {
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
     const worldPos = screenToWorld(point.x, point.y);
@@ -184,7 +196,7 @@ export default function PolygonCanvas() {
     }
   };
 
-  const handleMouseMove = (e) => {
+  const handlePointerMove = (e) => {
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
     const worldPos = screenToWorld(point.x, point.y);
@@ -204,7 +216,7 @@ export default function PolygonCanvas() {
     }
   };
   
-  const handleMouseUp = (e) => {
+  const handlePointerUp = (e) => {
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
     const worldPos = screenToWorld(point.x, point.y);
@@ -234,68 +246,177 @@ export default function PolygonCanvas() {
     }
   };
 
-  // Zoom handling
-  const handleWheel = (e) => {
+  // Throttled zoom handling for better performance
+  const handleWheel = useCallback(
+    throttle((e) => {
+      e.evt.preventDefault();
+      
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      
+      const { scale, position } = calculateZoom(
+        stageScale,
+        e.evt.deltaY,
+        pointer,
+        stagePos
+      );
+      
+      setStageScale(scale);
+      setStagePos(position);
+    }, 16), // ~60fps
+    [stageScale, stagePos]
+  );
+  
+  // Touch event handlers for pinch zoom
+  const handleTouchMove = useCallback((e) => {
     e.evt.preventDefault();
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
     
-    const scaleBy = 1.1;
-    const stage = stageRef.current;
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition();
-    
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
+    if (touch1 && touch2) {
+      // Pinch zoom
+      const stage = stageRef.current;
+      if (!stage) return;
+      
+      // Calculate distance between touches
+      const dist = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      
+      if (lastDist === 0) {
+        setLastDist(dist);
+        return;
+      }
+      
+      // Calculate center point between touches
+      const center = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      };
+      
+      // Calculate new scale
+      const scale = (dist / lastDist) * stageScale;
+      const newScale = Math.max(
+        VIEWPORT_CONSTRAINTS.minZoom,
+        Math.min(VIEWPORT_CONSTRAINTS.maxZoom, scale)
+      );
+      
+      // Calculate new position to zoom towards center
+      const stageRect = stage.container().getBoundingClientRect();
+      const pointer = {
+        x: center.x - stageRect.left,
+        y: center.y - stageRect.top
+      };
+      
+      const mousePointTo = {
+        x: (pointer.x - stagePos.x) / stageScale,
+        y: (pointer.y - stagePos.y) / stageScale,
+      };
+      
+      const newPos = {
+        x: pointer.x - mousePointTo.x * newScale,
+        y: pointer.y - mousePointTo.y * newScale,
+      };
+      
+      setStageScale(newScale);
+      setStagePos(newPos);
+      setLastDist(dist);
+      setLastCenter(center);
+    }
+  }, [stageScale, stagePos, lastDist]);
+  
+  const handleTouchEnd = useCallback(() => {
+    setLastDist(0);
+    setLastCenter(null);
+  }, []);
+  
+  // Keyboard shortcuts for viewport control
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Fit to content
+      if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (project.sections.length > 0) {
+          const viewport = fitToContent(project.sections, dimensions);
+          setStagePos({ x: viewport.x, y: viewport.y });
+          setStageScale(viewport.scale * responsiveScale);
+        }
+      }
+      // Zoom in
+      else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        const newScale = Math.min(stageScale * 1.2, VIEWPORT_CONSTRAINTS.maxZoom);
+        setStageScale(newScale);
+      }
+      // Zoom out
+      else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        const newScale = Math.max(stageScale / 1.2, VIEWPORT_CONSTRAINTS.minZoom);
+        setStageScale(newScale);
+      }
+      // Reset zoom
+      else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setStageScale(1);
+      }
     };
     
-    const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
-    const clampedScale = Math.max(0.1, Math.min(5, newScale));
-    
-    setStageScale(clampedScale);
-    setStagePos({
-      x: pointer.x - mousePointTo.x * clampedScale,
-      y: pointer.y - mousePointTo.y * clampedScale,
-    });
-  };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [project.sections, dimensions, responsiveScale, stageScale]);
 
   // Render grid - memoized for performance
   const renderGrid = useMemo(() => {
     if (!showGrid || !gridCfg.visible) return null;
     
     const lines = [];
-    const gridSizeInches = gridCfg.spacing_in;
-    const gridSizeFeet = gridSizeInches / 12;
+    const adaptiveSpacing = getAdaptiveGridSpacing(gridCfg.spacing_in, stageScale);
+    const gridSizeFeet = adaptiveSpacing / 12;
     const gridSizePixels = gridSizeFeet * PIXELS_PER_FOOT;
     
-    // Calculate visible area
-    const startX = Math.floor(-stagePos.x / stageScale / gridSizePixels) * gridSizePixels;
-    const endX = startX + (dimensions.width / stageScale) + gridSizePixels * 2;
-    const startY = Math.floor(-stagePos.y / stageScale / gridSizePixels) * gridSizePixels;
-    const endY = startY + (dimensions.height / stageScale) + gridSizePixels * 2;
+    // Calculate visible area with padding
+    const padding = 100;
+    const startX = Math.floor((-stagePos.x - padding) / stageScale / gridSizePixels) * gridSizePixels;
+    const endX = startX + ((dimensions.width + padding * 2) / stageScale) + gridSizePixels * 2;
+    const startY = Math.floor((-stagePos.y - padding) / stageScale / gridSizePixels) * gridSizePixels;
+    const endY = startY + ((dimensions.height + padding * 2) / stageScale) + gridSizePixels * 2;
     
-    // Grid lines
+    // Determine grid opacity based on zoom level
+    const gridOpacity = stageScale < 0.5 ? 0.3 : stageScale < 1 ? 0.5 : 0.7;
+    const majorGridInterval = adaptiveSpacing >= 24 ? 1 : 5; // Major lines every foot or 5 feet
+    
+    // Grid lines with major/minor distinction
+    let gridIndex = 0;
     for (let x = startX; x <= endX; x += gridSizePixels) {
+      const isMajor = gridIndex % majorGridInterval === 0;
       lines.push(
         <Line
           key={`v-${x}`}
           points={[x, startY, x, endY]}
-          stroke="#e0e0e0"
-          strokeWidth={0.5 / stageScale}
+          stroke={isMajor ? "#d0d0d0" : "#e8e8e8"}
+          strokeWidth={(isMajor ? 1 : 0.5) / stageScale}
+          opacity={gridOpacity}
           listening={false}
         />
       );
+      gridIndex++;
     }
     
+    gridIndex = 0;
     for (let y = startY; y <= endY; y += gridSizePixels) {
+      const isMajor = gridIndex % majorGridInterval === 0;
       lines.push(
         <Line
           key={`h-${y}`}
           points={[startX, y, endX, y]}
-          stroke="#e0e0e0"
-          strokeWidth={0.5 / stageScale}
+          stroke={isMajor ? "#d0d0d0" : "#e8e8e8"}
+          strokeWidth={(isMajor ? 1 : 0.5) / stageScale}
+          opacity={gridOpacity}
           listening={false}
         />
       );
+      gridIndex++;
     }
     
     return lines;
@@ -886,15 +1007,25 @@ export default function PolygonCanvas() {
         ref={stageRef}
         width={dimensions.width}
         height={dimensions.height}
-        onMouseDown={handleMouseDown}
-        onMousemove={handleMouseMove}
-        onMouseUp={handleMouseUp}
+        onMouseDown={handlePointerDown}
+        onMousemove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={(e) => {
+          handlePointerUp(e);
+          handleTouchEnd();
+        }}
         onWheel={handleWheel}
         x={stagePos.x}
         y={stagePos.y}
         scaleX={stageScale}
         scaleY={stageScale}
         draggable={tool === 'select'}
+        onDragEnd={(e) => {
+          const stage = e.target
+          setStagePos({ x: stage.x(), y: stage.y() })
+        }}
       >
         <Layer key={layerKey}>
           {renderGrid}
@@ -950,6 +1081,27 @@ export default function PolygonCanvas() {
           {snapToGrid(mousePos.x / PIXELS_PER_FOOT).toFixed(1)}', {snapToGrid(mousePos.y / PIXELS_PER_FOOT).toFixed(1)}'
         </div>
       )}
+      
+      {/* Viewport controls */}
+      <ViewportControls
+        stageScale={stageScale}
+        onZoomIn={() => {
+          const newScale = Math.min(stageScale * 1.2, VIEWPORT_CONSTRAINTS.maxZoom)
+          setStageScale(newScale)
+        }}
+        onZoomOut={() => {
+          const newScale = Math.max(stageScale / 1.2, VIEWPORT_CONSTRAINTS.minZoom)
+          setStageScale(newScale)
+        }}
+        onFitToContent={() => {
+          if (project.sections.length > 0) {
+            const viewport = fitToContent(project.sections, dimensions)
+            setStagePos({ x: viewport.x, y: viewport.y })
+            setStageScale(viewport.scale * responsiveScale)
+          }
+        }}
+        className="bottom-4 right-4"
+      />
     </div>
   );
 }

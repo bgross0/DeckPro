@@ -51,7 +51,7 @@ const useDeckStore = create((set, get) => ({
   selectedElementType: null, // 'section', 'stair', etc.
   
   // Drawing state
-  tool: 'section', // 'section', 'rectangle', 'stair', 'select', 'measure'
+  tool: 'select', // 'section', 'rectangle', 'stair', 'select', 'measure'
   drawingMode: null, // 'drawing', 'editing', null
   currentPolygon: [], // Points being drawn
   previewPoint: null, // Next point preview
