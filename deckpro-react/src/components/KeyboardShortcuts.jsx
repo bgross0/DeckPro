@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from './ui/dialog'
+} from './UI/dialog'
 
 const shortcuts = [
   { key: 'S', description: 'Select tool' },
