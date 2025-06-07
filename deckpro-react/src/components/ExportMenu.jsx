@@ -6,7 +6,12 @@ import toast from 'react-hot-toast'
 
 export function ExportMenu() {
   const [isOpen, setIsOpen] = useState(false)
-  const { footprint, engineOut } = useDeckStore()
+  const { project, selectedSectionId } = useDeckStore()
+  
+  // Get the selected section's data
+  const selectedSection = project.sections.find(s => s.id === selectedSectionId)
+  const footprint = selectedSection?.polygon || null
+  const engineOut = selectedSection?.structure?.engineOut || null
 
   useHotkeys('ctrl+e, cmd+e', () => {
     if (footprint && engineOut) {
@@ -54,15 +59,38 @@ export function ExportMenu() {
 
   const generateReport = (footprint, engineOut) => {
     const date = new Date().toLocaleDateString()
+    
+    // Calculate polygon area using shoelace formula
+    let area = 0
+    if (footprint && footprint.length >= 3) {
+      for (let i = 0; i < footprint.length; i++) {
+        const j = (i + 1) % footprint.length
+        area += footprint[i].x * footprint[j].y
+        area -= footprint[j].x * footprint[i].y
+      }
+      area = Math.abs(area) / 2
+    }
+    
+    // Calculate bounds
+    const bounds = footprint ? {
+      minX: Math.min(...footprint.map(p => p.x)),
+      maxX: Math.max(...footprint.map(p => p.x)),
+      minY: Math.min(...footprint.map(p => p.y)),
+      maxY: Math.max(...footprint.map(p => p.y))
+    } : { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+    
+    const width = bounds.maxX - bounds.minX
+    const length = bounds.maxY - bounds.minY
+    
     const report = `
 DECK DESIGN REPORT
 Generated: ${date}
 
 DECK DIMENSIONS
 ===============
-Width: ${footprint.width_ft}' 
-Length: ${footprint.length_ft}'
-Total Area: ${footprint.width_ft * footprint.length_ft} sq ft
+Width: ${width.toFixed(1)}' 
+Length: ${length.toFixed(1)}'
+Total Area: ${area.toFixed(0)} sq ft
 
 STRUCTURAL SPECIFICATIONS
 ========================
