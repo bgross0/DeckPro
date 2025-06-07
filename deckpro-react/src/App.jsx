@@ -50,11 +50,9 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4 relative z-10">
-          {/* Modern Logo */}
+          {/* Logo */}
           <div className="relative">
-            <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center shadow-lg border border-gray-800">
-              <span className="font-bold text-lg bg-gradient-to-br from-blue-400 via-teal-500 to-green-500 bg-clip-text text-transparent">D</span>
-            </div>
+            <img src="/deckprologo.ico" alt="DeckPro Logo" className="w-10 h-10 rounded-lg shadow-lg" />
           </div>
           
           {/* Enhanced Brand Text */}
