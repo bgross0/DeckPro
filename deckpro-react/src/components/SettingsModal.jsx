@@ -35,8 +35,12 @@ export function SettingsModal({ isOpen, onClose }) {
     })
     
     // Save auto-save preferences
-    localStorage.setItem('deckpro-autosave', settings.autoSave)
-    localStorage.setItem('deckpro-autosave-interval', settings.autoSaveInterval)
+    try {
+      localStorage.setItem('deckpro-autosave', settings.autoSave)
+      localStorage.setItem('deckpro-autosave-interval', settings.autoSaveInterval)
+    } catch (err) {
+      toast.error('Failed to save settings to browser storage')
+    }
     
     toast.success('Settings saved')
     onClose()

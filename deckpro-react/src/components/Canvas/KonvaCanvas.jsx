@@ -30,6 +30,7 @@ export default function KonvaCanvas() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState(null);
   const [measureLine, setMeasureLine] = useState(null);
+  const measureTimeoutRef = useRef(null);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   
   const containerRef = useRef(null);
@@ -163,12 +164,25 @@ export default function KonvaCanvas() {
       }
       setPreviewRect(null);
     } else if (tool === 'measure') {
-      // Keep the measurement visible until next click
-      setTimeout(() => setMeasureLine(null), 3000);
+      // Keep the measurement visible briefly
+      if (measureTimeoutRef.current) {
+        clearTimeout(measureTimeoutRef.current);
+      }
+      measureTimeoutRef.current = setTimeout(() => setMeasureLine(null), 3000);
     }
     
     setStartPoint(null);
   };
+
+  // Cleanup any pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (measureTimeoutRef.current) {
+        clearTimeout(measureTimeoutRef.current);
+        measureTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Zoom handling
   const handleWheel = (e) => {

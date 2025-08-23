@@ -38,8 +38,7 @@ export function useCanvasSize(containerRef) {
     // Initial size
     updateDimensions()
     
-    // Listen for resize events - prioritize immediate updates
-    window.addEventListener('resize', handleImmediateResize)
+    // Listen for resize events (debounced to reduce churn)
     window.addEventListener('resize', handleResize)
     
     // Also listen for device pixel ratio changes (e.g., moving between monitors)
@@ -54,7 +53,6 @@ export function useCanvasSize(containerRef) {
     }
     
     return () => {
-      window.removeEventListener('resize', handleImmediateResize)
       window.removeEventListener('resize', handleResize)
       mediaQuery.removeEventListener('change', updateDimensions)
       handleResize.cancel()

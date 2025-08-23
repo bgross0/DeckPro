@@ -139,6 +139,7 @@ export class DrawingSurface {
   }
   
   setupEventListeners() {
+    this._handlers = {};
     let isPanning = false;
     let lastX = 0;
     let lastY = 0;
@@ -154,7 +155,7 @@ export class DrawingSurface {
     this.drawingTouchId = null;
     
     // Mouse events for drawing and panning
-    this.canvas.addEventListener('mousedown', (e) => {
+    this._handlers.onMouseDown = (e) => {
       // Handle drawing with left mouse button
       if (e.button === 0) {
         // Find the footprint layer and delegate drawing
@@ -175,9 +176,10 @@ export class DrawingSurface {
         lastY = e.clientY;
         e.preventDefault();
       }
-    });
+    };
+    this.canvas.addEventListener('mousedown', this._handlers.onMouseDown);
     
-    this.canvas.addEventListener('mousemove', (e) => {
+    this._handlers.onMouseMove = (e) => {
       // Handle drawing mouse move
       const footprintLayer = this.layers.find(l => l.id === 'footprint');
       if (footprintLayer && footprintLayer.handleMouseMove) {
@@ -197,9 +199,10 @@ export class DrawingSurface {
         
         this.draw();
       }
-    });
+    };
+    this.canvas.addEventListener('mousemove', this._handlers.onMouseMove);
     
-    this.canvas.addEventListener('mouseup', (e) => {
+    this._handlers.onMouseUp = (e) => {
       // Handle drawing mouse up
       const footprintLayer = this.layers.find(l => l.id === 'footprint');
       if (footprintLayer && footprintLayer.handleMouseUp) {
@@ -207,15 +210,17 @@ export class DrawingSurface {
       }
       
       isPanning = false;
-    });
+    };
+    this.canvas.addEventListener('mouseup', this._handlers.onMouseUp);
     
     // Prevent context menu on right-click
-    this.canvas.addEventListener('contextmenu', (e) => {
+    this._handlers.onContextMenu = (e) => {
       e.preventDefault();
-    });
+    };
+    this.canvas.addEventListener('contextmenu', this._handlers.onContextMenu);
     
     // Mouse wheel zoom
-    this.canvas.addEventListener('wheel', (e) => {
+    this._handlers.onWheel = (e) => {
       e.preventDefault();
       
       const zoomSpeed = 0.1;
@@ -237,18 +242,20 @@ export class DrawingSurface {
       this.pan.y = mouseY - worldY * this.zoom;
       
       this.draw();
-    });
+    };
+    this.canvas.addEventListener('wheel', this._handlers.onWheel, { passive: false });
     
     // Touch events for panning (one finger) - only when not drawing
-    this.canvas.addEventListener('touchstart', (e) => {
+    this._handlers.onTouchStartPan = (e) => {
       if (e.touches.length === 1 && !this.isDrawingMode) {
         isPanning = true;
         lastX = e.touches[0].clientX;
         lastY = e.touches[0].clientY;
       }
-    });
+    };
+    this.canvas.addEventListener('touchstart', this._handlers.onTouchStartPan);
     
-    this.canvas.addEventListener('touchmove', (e) => {
+    this._handlers.onTouchMovePan = (e) => {
       if (isPanning && e.touches.length === 1 && !this.isDrawingMode) {
         const dx = e.touches[0].clientX - lastX;
         const dy = e.touches[0].clientY - lastY;
@@ -262,22 +269,25 @@ export class DrawingSurface {
         this.draw();
         e.preventDefault(); // Prevent scrolling while panning
       }
-    });
+    };
+    this.canvas.addEventListener('touchmove', this._handlers.onTouchMovePan, { passive: false });
     
-    this.canvas.addEventListener('touchend', () => {
+    this._handlers.onTouchEndPan = () => {
       isPanning = false;
-    });
+    };
+    this.canvas.addEventListener('touchend', this._handlers.onTouchEndPan);
     
     // Pinch-to-zoom (two fingers)
     let initialPinchDistance = 0;
     
-    this.canvas.addEventListener('touchstart', (e) => {
+    this._handlers.onTouchStartPinch = (e) => {
       if (e.touches.length === 2) {
         initialPinchDistance = this.getPinchDistance(e);
       }
-    });
+    };
+    this.canvas.addEventListener('touchstart', this._handlers.onTouchStartPinch);
     
-    this.canvas.addEventListener('touchmove', (e) => {
+    this._handlers.onTouchMovePinch = (e) => {
       if (e.touches.length === 2) {
         const currentDistance = this.getPinchDistance(e);
         const pinchRatio = currentDistance / initialPinchDistance;
@@ -305,13 +315,15 @@ export class DrawingSurface {
           e.preventDefault();
         }
       }
-    });
+    };
+    this.canvas.addEventListener('touchmove', this._handlers.onTouchMovePinch, { passive: false });
     
     // Handle window resize
-    window.addEventListener('resize', () => {
+    this._handlers.onWindowResize = () => {
       this.setupCanvas();
       this.draw();
-    });
+    };
+    window.addEventListener('resize', this._handlers.onWindowResize);
   }
   
   /**
@@ -348,3 +360,24 @@ export class DrawingSurface {
 if (typeof window !== 'undefined') {
   window.DrawingSurface = DrawingSurface;
 }
+
+// Cleanup listeners to avoid leaks
+DrawingSurface.prototype.destroy = function() {
+  const h = this._handlers || {};
+  if (this.canvas) {
+    if (h.onMouseDown) this.canvas.removeEventListener('mousedown', h.onMouseDown);
+    if (h.onMouseMove) this.canvas.removeEventListener('mousemove', h.onMouseMove);
+    if (h.onMouseUp) this.canvas.removeEventListener('mouseup', h.onMouseUp);
+    if (h.onContextMenu) this.canvas.removeEventListener('contextmenu', h.onContextMenu);
+    if (h.onWheel) this.canvas.removeEventListener('wheel', h.onWheel);
+    if (h.onTouchStartPan) this.canvas.removeEventListener('touchstart', h.onTouchStartPan);
+    if (h.onTouchMovePan) this.canvas.removeEventListener('touchmove', h.onTouchMovePan);
+    if (h.onTouchEndPan) this.canvas.removeEventListener('touchend', h.onTouchEndPan);
+    if (h.onTouchStartPinch) this.canvas.removeEventListener('touchstart', h.onTouchStartPinch);
+    if (h.onTouchMovePinch) this.canvas.removeEventListener('touchmove', h.onTouchMovePinch);
+  }
+  if (typeof window !== 'undefined') {
+    if (h.onWindowResize) window.removeEventListener('resize', h.onWindowResize);
+  }
+  this._handlers = {};
+};
