@@ -91,6 +91,27 @@ export default function PolygonCanvas() {
     getResponsiveScale(dimensions.width),
     [dimensions.width]
   );
+
+  // Handle PNG export triggered from toolbar
+  useEffect(() => {
+    const handleExportPng = () => {
+      try {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const dataURL = stage.toDataURL({ pixelRatio: 2, mimeType: 'image/png' });
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = `deckpro-canvas-${new Date().toISOString().slice(0,10)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error('PNG export failed', err);
+      }
+    };
+    window.addEventListener('canvas-export-png', handleExportPng);
+    return () => window.removeEventListener('canvas-export-png', handleExportPng);
+  }, []);
   
   // Fit to content when sections change
   useEffect(() => {

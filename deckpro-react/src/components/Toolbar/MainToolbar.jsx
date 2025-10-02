@@ -178,8 +178,8 @@ export function MainToolbar() {
   }
 
   function handleExportPNG() {
-    // TODO: Implement PNG export
-    toast.info('PNG export coming soon')
+    // Trigger export handled by canvas component
+    window.dispatchEvent(new CustomEvent('canvas-export-png'))
     setShowExportMenu(false)
   }
 

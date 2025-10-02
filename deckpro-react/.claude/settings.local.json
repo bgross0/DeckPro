@@ -23,7 +23,8 @@
       "Bash(npm run preview:*)",
       "Bash(npx vite:*)",
       "Bash(chmod:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   },

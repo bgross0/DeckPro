@@ -42,7 +42,7 @@ function App() {
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
             <defs>
               <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+                <path d="M 0 10 L 10 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
               </pattern>
             </defs>
             <rect width="100" height="100" fill="url(#grid)" />
@@ -50,11 +50,9 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4 relative z-10">
-          {/* Modern Logo */}
+          {/* Logo */}
           <div className="relative">
-            <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center shadow-lg border border-gray-800">
-              <span className="font-bold text-lg bg-gradient-to-br from-blue-400 via-teal-500 to-green-500 bg-clip-text text-transparent">D</span>
-            </div>
+            <img src="/deckprologopng.png" alt="DeckPro Logo" className="w-10 h-10 rounded-lg shadow-lg object-contain" />
           </div>
           
           {/* Enhanced Brand Text */}
@@ -65,31 +63,12 @@ function App() {
             </h1>
             <div className="flex items-center space-x-2 mt-0.5">
               <p className="text-sm text-slate-300 font-semibold">Professional Deck Design Suite</p>
-              <div className="w-1 h-1 bg-gradient-to-r from-blue-400 to-green-500 rounded-full"></div>
-              <span className="text-xs text-slate-400 font-medium">CAD Edition</span>
             </div>
           </div>
         </div>
         
         {/* Header Actions */}
         <div className="flex items-center space-x-6 relative z-10">
-          {/* Status Indicator */}
-          <div className="hidden lg:flex items-center space-x-3">
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700/50 rounded-lg border border-slate-600/50">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-slate-300 font-medium">Connected</span>
-            </div>
-          </div>
-          
-          {/* Version Badge */}
-          <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-400/30">
-            <svg className="w-4 h-4 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span className="text-sm font-bold text-orange-200">v2.0.1</span>
-            <div className="w-1 h-1 bg-orange-400 rounded-full"></div>
-            <span className="text-xs text-orange-300/80">Beta</span>
-          </div>
           
           {/* User Menu Placeholder */}
           <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl border border-slate-500/50 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow cursor-pointer">

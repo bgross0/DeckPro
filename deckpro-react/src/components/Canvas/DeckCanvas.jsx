@@ -87,6 +87,10 @@ export function DeckCanvas() {
     // Cleanup
     return () => {
       resizeObserver.disconnect();
+      if (surfaceRef.current) {
+        surfaceRef.current.destroy?.();
+        surfaceRef.current = null;
+      }
       // TODO: Add proper cleanup for layers
     }
   }, [])

@@ -574,6 +574,9 @@ const useDeckStore = create((set, get) => ({
   
   loadProject: (file) => {
     const reader = new FileReader()
+    reader.onerror = () => {
+      toast.error('Failed to read project file')
+    }
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result)

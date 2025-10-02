@@ -35,7 +35,8 @@
       "Bash(done)",
       "Bash(for:*)",
       "Bash(if [ -f \"/mnt/c/users/owner/code/local/betas/deckpro/deckpro-react/src/data/$file\" ])",
-      "Bash([ -f \"/mnt/c/users/owner/code/local/betas/deckpro/src/data/$file\" ])"
+      "Bash([ -f \"/mnt/c/users/owner/code/local/betas/deckpro/src/data/$file\" ])",
+      "Read(//home/ben/Documents/GitHub/supersheets/**)"
     ],
     "deny": []
   },
