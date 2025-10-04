@@ -184,9 +184,61 @@ export function MainToolbar() {
   }
 
   function handleExportCSV() {
-    // TODO: Implement CSV export
-    toast.info('CSV export coming soon')
+    const section = project.sections.find(s => s.id === selectedSectionId)
+    if (!section?.structure?.engineOut?.material_takeoff) {
+      toast.error('No material data to export')
+      setShowExportMenu(false)
+      return
+    }
+
+    try {
+      const materials = section.structure.engineOut.material_takeoff
+
+      // Create CSV content
+      let csvContent = 'Item,Quantity,Unit,Description\n'
+
+      materials.forEach(item => {
+        const itemName = escapeCsvField(item.item || '')
+        const qty = item.qty || 0
+        const unit = escapeCsvField(item.unit || 'ea')
+        const description = escapeCsvField(item.description || '')
+
+        csvContent += `${itemName},${qty},${unit},${description}\n`
+      })
+
+      // Add project metadata
+      csvContent += '\n'
+      csvContent += 'Project Information\n'
+      csvContent += `Section,${escapeCsvField(section.name)}\n`
+      csvContent += `Generated,${new Date().toLocaleString()}\n`
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${section.name.replace(/\s+/g, '_')}_materials_${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success('Material list exported to CSV')
+    } catch (error) {
+      console.error('CSV export error:', error)
+      toast.error('Failed to export CSV')
+    }
+
     setShowExportMenu(false)
+  }
+
+  function escapeCsvField(field) {
+    // Escape CSV fields that contain commas, quotes, or newlines
+    if (typeof field !== 'string') return field
+    if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+      return `"${field.replace(/"/g, '""')}"`
+    }
+    return field
   }
 
   function handleNewProject() {

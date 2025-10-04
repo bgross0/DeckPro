@@ -1,25 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Univer, UniverInstanceType, IWorkbookData, LocaleType } from '@univerjs/core';
+import { Univer, UniverInstanceType, LocaleType } from '@univerjs/core';
 import { defaultTheme } from '@univerjs/design';
-import { UniverDocsPlugin } from '@univerjs/docs';
-import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
 import { UniverSheetsPlugin } from '@univerjs/sheets';
 import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
 import { UniverUIPlugin } from '@univerjs/ui';
-import { Upload, Download, Sync } from 'lucide-react';
+import { Upload, Download, RefreshCw, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import usePriceStore from '../../store/priceStore';
-import { univerPriceMapper } from '../../utils/univerPriceMapper';
+import { excelFileHandler } from '../../utils/excelFileHandler';
 
 // Import required CSS
 import '@univerjs/design/lib/index.css';
 import '@univerjs/ui/lib/index.css';
 import '@univerjs/sheets-ui/lib/index.css';
 
-// Import locale data
+// Import locale
 import enUS from '@univerjs/sheets-ui/locale/en-US';
 
 interface SpreadsheetPriceEditorProps {
@@ -37,339 +35,160 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
   useEffect(() => {
     if (!containerRef.current || isInitialized) return;
 
-    try {
-      // Create Univer instance
-      const univer = new Univer({
-        theme: defaultTheme,
-        locale: LocaleType.EN_US,
-        locales: {
-          [LocaleType.EN_US]: enUS,
-        },
-      });
+    // Add a small delay to ensure the container is properly rendered
+    const timer = setTimeout(() => {
+      if (!containerRef.current) return;
 
-      // Register plugins in correct order
-      univer.registerPlugin(UniverRenderEnginePlugin);
-      univer.registerPlugin(UniverFormulaEnginePlugin);
-      univer.registerPlugin(UniverUIPlugin, {
-        container: containerRef.current,
-        header: true,
-        footer: true,
-      });
-
-      univer.registerPlugin(UniverDocsPlugin, {
-        hasScroll: false,
-      });
-      univer.registerPlugin(UniverDocsUIPlugin);
-
-      univer.registerPlugin(UniverSheetsPlugin);
-      univer.registerPlugin(UniverSheetsUIPlugin);
-      univer.registerPlugin(UniverSheetsFormulaPlugin);
-
-      // Create workbook with pricing data
-      const workbook = createPricingWorkbook(prices);
-
-      // Create unit
-      univer.createUnit(UniverInstanceType.UNIVER_SHEET, workbook);
-
-      univerRef.current = univer;
-      setIsInitialized(true);
-
-    } catch (error) {
-      console.error('Failed to initialize Univer:', error);
-      toast.error('Failed to initialize spreadsheet editor');
-    }
-  }, [isInitialized, prices]);
-
-  const createPricingWorkbook = (priceData: any): IWorkbookData => {
-    return {
-      id: 'pricing-workbook',
-      name: 'DeckPro Pricing',
-      appVersion: '2.0.1',
-      locale: LocaleType.EN_US,
-      defaultStyle: {
-        hAlign: 0,
-        vAlign: 0,
-        tb: 0,
-        pd: { t: 0, r: 2, b: 0, l: 2 },
-      },
-      styles: {
-        'header': {
-          bg: { rgb: '#3B82F6' },
-          cl: { rgb: '#FFFFFF' },
-          bl: 1,
-          fs: 12,
-        },
-        'currency': {
-          n: {
-            pattern: '$#,##0.00'
-          }
-        }
-      },
-      sheets: {
-        'lumber': createLumberSheet(priceData.lumber),
-        'hardware': createHardwareSheet(priceData.hardware),
-        'simpson': createSimpsonSheet(priceData.simpsonZmax),
-        'footings': createFootingsSheet(priceData.footings),
-        'multipliers': createMultipliersSheet(priceData.speciesMultipliers),
-      },
-      resources: []
-    };
-  };
-
-  const createLumberSheet = (lumberData: any) => {
-    const cellData: any = {
-      0: {
-        0: { v: 'Size', s: 'header' },
-        1: { v: 'Cost per Foot', s: 'header' },
-        2: { v: 'Width (in)', s: 'header' },
-        3: { v: 'Depth (in)', s: 'header' },
-        4: { v: 'Board Feet per LF', s: 'header' },
-        5: { v: 'Notes', s: 'header' }
-      }
-    };
-
-    let row = 1;
-    Object.entries(lumberData).forEach(([size, data]: [string, any]) => {
-      const boardFeetPerLF = (data.widthIn * data.depthIn) / 144; // Convert to board feet
-      cellData[row] = {
-        0: { v: size },
-        1: { v: data.costPerFoot, s: 'currency' },
-        2: { v: data.widthIn },
-        3: { v: data.depthIn },
-        4: { f: `=B${row + 1}*C${row + 1}*D${row + 1}/144`, v: boardFeetPerLF.toFixed(4) },
-        5: { v: 'Standard framing lumber' }
-      };
-      row++;
-    });
-
-    return {
-      id: 'lumber',
-      name: 'Lumber',
-      tabColor: '#10B981',
-      hidden: 0,
-      rowCount: 1000,
-      columnCount: 26,
-      zoomRatio: 1,
-      scrollTop: 0,
-      scrollLeft: 0,
-      defaultColumnWidth: 120,
-      defaultRowHeight: 25,
-      status: 1,
-      showGridlines: 1,
-      hideRow: [],
-      hideColumn: [],
-      rowHeader: { width: 46, hidden: 0 },
-      columnHeader: { height: 20, hidden: 0 },
-      selections: ['A1'],
-      rightToLeft: 0,
-      pluginMeta: {},
-      cellData
-    };
-  };
-
-  const createHardwareSheet = (hardwareData: any) => {
-    const cellData: any = {
-      0: {
-        0: { v: 'Item Code', s: 'header' },
-        1: { v: 'Cost Each', s: 'header' },
-        2: { v: 'Description', s: 'header' },
-        3: { v: 'Category', s: 'header' },
-        4: { v: 'Bulk Discount %', s: 'header' },
-        5: { v: 'Discounted Price', s: 'header' }
-      }
-    };
-
-    let row = 1;
-    Object.entries(hardwareData).forEach(([item, data]: [string, any]) => {
-      cellData[row] = {
-        0: { v: item },
-        1: { v: data.cost, s: 'currency' },
-        2: { v: data.description },
-        3: { v: 'Legacy Hardware' },
-        4: { v: 0.05 }, // 5% bulk discount example
-        5: { f: `=B${row + 1}*(1-E${row + 1})`, v: data.cost * 0.95 }
-      };
-      row++;
-    });
-
-    return {
-      id: 'hardware',
-      name: 'Hardware',
-      tabColor: '#F59E0B',
-      hidden: 0,
-      rowCount: 1000,
-      columnCount: 26,
-      zoomRatio: 1,
-      scrollTop: 0,
-      scrollLeft: 0,
-      defaultColumnWidth: 150,
-      defaultRowHeight: 25,
-      status: 1,
-      showGridlines: 1,
-      hideRow: [],
-      hideColumn: [],
-      rowHeader: { width: 46, hidden: 0 },
-      columnHeader: { height: 20, hidden: 0 },
-      selections: ['A1'],
-      rightToLeft: 0,
-      pluginMeta: {},
-      cellData
-    };
-  };
-
-  const createSimpsonSheet = (simpsonData: any) => {
-    const cellData: any = {
-      0: {
-        0: { v: 'Category', s: 'header' },
-        1: { v: 'Item Code', s: 'header' },
-        2: { v: 'Cost Each', s: 'header' },
-        3: { v: 'Description', s: 'header' },
-        4: { v: 'Nails Required', s: 'header' },
-        5: { v: 'Screws Required', s: 'header' }
-      }
-    };
-
-    let row = 1;
-    Object.entries(simpsonData).forEach(([category, items]: [string, any]) => {
-      if (typeof items === 'object') {
-        Object.entries(items).forEach(([subCategory, subItems]: [string, any]) => {
-          if (typeof subItems === 'object') {
-            Object.entries(subItems).forEach(([item, data]: [string, any]) => {
-              cellData[row] = {
-                0: { v: `${category}/${subCategory}` },
-                1: { v: item },
-                2: { v: data.cost, s: 'currency' },
-                3: { v: data.description },
-                4: { v: data.nailsRequired || 0 },
-                5: { v: data.screwsRequired || 0 }
-              };
-              row++;
-            });
-          }
+      try {
+        // Create Univer instance
+        const univer = new Univer({
+          theme: defaultTheme,
+          locale: LocaleType.EN_US,
+          locales: {
+            [LocaleType.EN_US]: enUS,
+          },
         });
-      }
-    });
 
-    return {
-      id: 'simpson',
-      name: 'Simpson ZMAX',
-      tabColor: '#EF4444',
-      hidden: 0,
-      rowCount: 1000,
-      columnCount: 26,
-      zoomRatio: 1,
-      scrollTop: 0,
-      scrollLeft: 0,
-      defaultColumnWidth: 180,
-      defaultRowHeight: 25,
-      status: 1,
-      showGridlines: 1,
-      hideRow: [],
-      hideColumn: [],
-      rowHeader: { width: 46, hidden: 0 },
-      columnHeader: { height: 20, hidden: 0 },
-      selections: ['A1'],
-      rightToLeft: 0,
-      pluginMeta: {},
-      cellData
+        // Store reference
+        univerRef.current = univer;
+
+        // Register plugins
+        univer.registerPlugin(UniverRenderEnginePlugin);
+        univer.registerPlugin(UniverUIPlugin, {
+          container: containerRef.current,
+          header: true,
+          toolbar: true,
+          footer: true,
+        });
+
+        univer.registerPlugin(UniverSheetsPlugin);
+        univer.registerPlugin(UniverSheetsUIPlugin);
+        univer.registerPlugin(UniverFormulaEnginePlugin);
+        univer.registerPlugin(UniverSheetsFormulaPlugin);
+
+        // Create a simple workbook
+        const workbook = {
+          id: 'pricing-workbook',
+          name: 'DeckPro Pricing',
+          appVersion: '3.0.0-alpha',
+          locale: LocaleType.EN_US,
+          defaultStyle: {},
+          styles: {},
+          sheetOrder: ['sheet-01'],
+          sheets: {
+            'sheet-01': {
+              id: 'sheet-01',
+              name: 'Pricing Data',
+              tabColor: 'blue',
+              hidden: 0,
+              rowCount: 1000,
+              columnCount: 20,
+              zoomRatio: 1,
+              scrollTop: 0,
+              scrollLeft: 0,
+              defaultColumnWidth: 100,
+              defaultRowHeight: 25,
+              status: 1,
+              showGridlines: 1,
+              hideRow: [],
+              hideColumn: [],
+              rowHeader: {
+                width: 46,
+                hidden: 0,
+              },
+              columnHeader: {
+                height: 20,
+                hidden: 0,
+              },
+              selections: ['A1'],
+              rightToLeft: 0,
+              pluginMeta: {},
+              cellData: createInitialCellData(prices),
+            },
+          },
+        };
+
+        // Create the workbook
+        univer.createUnit(UniverInstanceType.UNIVER_SHEET, workbook);
+
+        console.log('[Univer] Successfully initialized');
+        setIsInitialized(true);
+
+      } catch (error) {
+        console.error('[Univer] Initialization error:', error);
+        toast.error('Failed to initialize spreadsheet editor');
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (univerRef.current) {
+        try {
+          univerRef.current.dispose();
+        } catch (e) {
+          console.error('[Univer] Cleanup error:', e);
+        }
+      }
     };
-  };
+  }, [isInitialized]);
 
-  const createFootingsSheet = (footingsData: any) => {
-    const cellData: any = {
-      0: {
-        0: { v: 'Footing Type', s: 'header' },
-        1: { v: 'Cost Each', s: 'header' },
-        2: { v: 'Installation Time (hrs)', s: 'header' },
-        3: { v: 'Labor Rate', s: 'header' },
-        4: { v: 'Total Cost', s: 'header' }
-      }
+  const createInitialCellData = (priceData: any) => {
+    const cellData: any = {};
+
+    // Headers
+    cellData[0] = {
+      0: { v: 'Category' },
+      1: { v: 'Item' },
+      2: { v: 'Price' },
+      3: { v: 'Unit' },
+      4: { v: 'Description' },
     };
 
     let row = 1;
-    Object.entries(footingsData).forEach(([type, cost]: [string, any]) => {
-      const laborTime = type === 'helical' ? 2 : type === 'concrete' ? 4 : 1;
-      const laborRate = 75; // $75/hr example
 
-      cellData[row] = {
-        0: { v: type },
-        1: { v: cost, s: 'currency' },
-        2: { v: laborTime },
-        3: { v: laborRate, s: 'currency' },
-        4: { f: `=B${row + 1}+C${row + 1}*D${row + 1}`, v: cost + (laborTime * laborRate) }
-      };
-      row++;
-    });
+    // Add lumber data
+    if (priceData.lumber) {
+      Object.entries(priceData.lumber).forEach(([size, data]: [string, any]) => {
+        cellData[row] = {
+          0: { v: 'Lumber' },
+          1: { v: size },
+          2: { v: data.costPerFoot },
+          3: { v: 'per foot' },
+          4: { v: `${data.widthIn}" x ${data.depthIn}"` },
+        };
+        row++;
+      });
+    }
 
-    return {
-      id: 'footings',
-      name: 'Footings',
-      tabColor: '#8B5CF6',
-      hidden: 0,
-      rowCount: 1000,
-      columnCount: 26,
-      zoomRatio: 1,
-      scrollTop: 0,
-      scrollLeft: 0,
-      defaultColumnWidth: 150,
-      defaultRowHeight: 25,
-      status: 1,
-      showGridlines: 1,
-      hideRow: [],
-      hideColumn: [],
-      rowHeader: { width: 46, hidden: 0 },
-      columnHeader: { height: 20, hidden: 0 },
-      selections: ['A1'],
-      rightToLeft: 0,
-      pluginMeta: {},
-      cellData
-    };
-  };
+    // Add hardware data
+    if (priceData.hardware) {
+      Object.entries(priceData.hardware).forEach(([item, data]: [string, any]) => {
+        cellData[row] = {
+          0: { v: 'Hardware' },
+          1: { v: item },
+          2: { v: data.cost },
+          3: { v: 'each' },
+          4: { v: data.description },
+        };
+        row++;
+      });
+    }
 
-  const createMultipliersSheet = (multipliersData: any) => {
-    const cellData: any = {
-      0: {
-        0: { v: 'Species Grade', s: 'header' },
-        1: { v: 'Cost Multiplier', s: 'header' },
-        2: { v: 'Availability', s: 'header' },
-        3: { v: 'Quality Rating', s: 'header' }
-      }
-    };
+    // Add footings data
+    if (priceData.footings) {
+      Object.entries(priceData.footings).forEach(([type, data]: [string, any]) => {
+        cellData[row] = {
+          0: { v: 'Footings' },
+          1: { v: type },
+          2: { v: data.baseCost },
+          3: { v: 'each' },
+          4: { v: data.description },
+        };
+        row++;
+      });
+    }
 
-    let row = 1;
-    Object.entries(multipliersData).forEach(([species, multiplier]: [string, any]) => {
-      cellData[row] = {
-        0: { v: species },
-        1: { v: multiplier },
-        2: { v: 'Regional' },
-        3: { v: species.includes('#1') ? 'Premium' : 'Standard' }
-      };
-      row++;
-    });
-
-    return {
-      id: 'multipliers',
-      name: 'Species Multipliers',
-      tabColor: '#06B6D4',
-      hidden: 0,
-      rowCount: 1000,
-      columnCount: 26,
-      zoomRatio: 1,
-      scrollTop: 0,
-      scrollLeft: 0,
-      defaultColumnWidth: 150,
-      defaultRowHeight: 25,
-      status: 1,
-      showGridlines: 1,
-      hideRow: [],
-      hideColumn: [],
-      rowHeader: { width: 46, hidden: 0 },
-      columnHeader: { height: 20, hidden: 0 },
-      selections: ['A1'],
-      rightToLeft: 0,
-      pluginMeta: {},
-      cellData
-    };
+    return cellData;
   };
 
   const handleImportFile = () => {
@@ -382,25 +201,30 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
 
     setIsLoading(true);
     try {
-      // Use xlsx library to read Excel file
-      const XLSX = await import('xlsx');
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const result = await excelFileHandler.importFromFile(file);
 
-      // Convert to pricing data format
-      const newPrices = await univerPriceMapper.excelToprices(workbook);
+      if (result.success && result.data) {
+        if (importPrices(JSON.stringify(result.data))) {
+          toast.success('Pricing data imported successfully');
 
-      // Import into price store
-      if (importPrices(JSON.stringify(newPrices))) {
-        toast.success('Pricing data imported successfully');
-        // Refresh the spreadsheet
-        window.location.reload();
+          if (result.warnings && result.warnings.length > 0) {
+            toast('Import completed with warnings: ' + result.warnings.join(', '), {
+              duration: 6000,
+              icon: '⚠️'
+            });
+          }
+
+          // Refresh the spreadsheet
+          window.location.reload();
+        } else {
+          toast.error('Failed to save imported pricing data');
+        }
       } else {
-        toast.error('Failed to import pricing data');
+        toast.error(result.error || 'Failed to import pricing data');
       }
     } catch (error) {
       console.error('Import error:', error);
-      toast.error('Failed to read Excel file');
+      toast.error('Failed to read file');
     } finally {
       setIsLoading(false);
       if (event.target) event.target.value = '';
@@ -409,18 +233,8 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
 
   const handleExport = async () => {
     try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
-
-      // Export each category as a separate sheet
       const priceData = JSON.parse(exportPrices());
-
-      Object.entries(priceData).forEach(([category, data]) => {
-        const ws = univerPriceMapper.pricestoWorksheet(category, data);
-        XLSX.utils.book_append_sheet(wb, ws, category);
-      });
-
-      XLSX.writeFile(wb, `deckpro-prices-${new Date().toISOString().split('T')[0]}.xlsx`);
+      await excelFileHandler.exportToExcel(priceData);
       toast.success('Pricing data exported successfully');
     } catch (error) {
       console.error('Export error:', error);
@@ -429,13 +243,33 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
   };
 
   const handleSync = async () => {
-    if (!univerRef.current) return;
-
     try {
       setIsLoading(true);
-      // Get current spreadsheet data and sync back to price store
-      // This would require implementing data extraction from Univer
-      toast.success('Pricing data synchronized');
+
+      // Get current data from Univer spreadsheet
+      if (!univerRef.current) {
+        throw new Error('Spreadsheet not initialized');
+      }
+
+      const univerInstance = univerRef.current;
+      const activeWorkbook = univerInstance.getUniverSheetInstance('pricing-workbook');
+
+      if (!activeWorkbook) {
+        throw new Error('Workbook not found');
+      }
+
+      const activeSheet = activeWorkbook.getActiveSheet();
+      const cellData = activeSheet.getCellMatrix();
+
+      // Convert spreadsheet data back to price format
+      const updatedPrices = syncSpreadsheetToStore(cellData);
+
+      // Update the store with changes
+      if (importPrices(JSON.stringify(updatedPrices))) {
+        toast.success('Pricing data synchronized successfully');
+      } else {
+        toast.error('Failed to save synchronized data');
+      }
     } catch (error) {
       console.error('Sync error:', error);
       toast.error('Failed to synchronize pricing data');
@@ -444,14 +278,81 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (univerRef.current) {
-        univerRef.current.dispose();
-      }
+  const syncSpreadsheetToStore = (cellData: any) => {
+    const prices = {
+      lumber: {},
+      hardware: {},
+      simpsonZmax: {
+        hangers: {},
+        angles: {},
+        posts: {},
+        beams: {}
+      },
+      footings: {},
+      speciesMultipliers: {}
     };
-  }, []);
+
+    // Iterate through rows (skip header at row 0)
+    cellData.forEach((rowData: any, rowIndex: number) => {
+      if (rowIndex === 0) return; // Skip header
+
+      const category = rowData[0]?.v;
+      const item = rowData[1]?.v;
+      const price = parseFloat(rowData[2]?.v);
+      const unit = rowData[3]?.v;
+      const description = rowData[4]?.v;
+
+      if (!category || !item || isNaN(price)) return;
+
+      const cat = category.toLowerCase().trim();
+
+      if (cat === 'lumber') {
+        const match = item.match(/(\d+)\s*x\s*(\d+)/i);
+        prices.lumber[item] = {
+          costPerFoot: price,
+          widthIn: match ? parseInt(match[1]) : 2,
+          depthIn: match ? parseInt(match[2]) : 6
+        };
+      } else if (cat === 'hardware') {
+        prices.hardware[item] = {
+          cost: price,
+          description: description || item
+        };
+      } else if (cat === 'footings') {
+        prices.footings[item] = {
+          baseCost: price,
+          description: description || item
+        };
+      } else if (cat.includes('species') || cat.includes('multipliers')) {
+        prices.speciesMultipliers[item] = price;
+      } else if (cat.includes('simpson') || cat.includes('zmax')) {
+        // Categorize Simpson hardware
+        const itemUpper = item.toUpperCase();
+        let subCat = 'hangers';
+        if (itemUpper.includes('LUS') || itemUpper.includes('HANGER')) subCat = 'hangers';
+        else if (itemUpper.includes('A') && itemUpper.includes('ANGLE')) subCat = 'angles';
+        else if (itemUpper.includes('POST') || itemUpper.includes('BC')) subCat = 'posts';
+        else if (itemUpper.includes('BEAM') || itemUpper.includes('LBV')) subCat = 'beams';
+
+        prices.simpsonZmax[subCat][item] = {
+          cost: price,
+          description: description || item
+        };
+      }
+    });
+
+    return prices;
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await excelFileHandler.createSampleTemplate();
+      toast.success('Template downloaded successfully');
+    } catch (error) {
+      console.error('Template download error:', error);
+      toast.error('Failed to download template');
+    }
+  };
 
   return (
     <div className="spreadsheet-price-editor h-full flex flex-col">
@@ -459,6 +360,15 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
       <div className="flex items-center justify-between p-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold">Spreadsheet Price Editor</h3>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            disabled={isLoading}
+            className="btn-secondary flex items-center gap-2"
+            title="Download Excel template with sample data"
+          >
+            <FileDown className="w-4 h-4" />
+            Template
+          </button>
           <button
             onClick={handleImportFile}
             disabled={isLoading}
@@ -480,14 +390,18 @@ export function SpreadsheetPriceEditor({ onClose }: SpreadsheetPriceEditorProps)
             disabled={isLoading}
             className="btn-primary flex items-center gap-2"
           >
-            <Sync className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
             Sync Changes
           </button>
         </div>
       </div>
 
       {/* Spreadsheet Container */}
-      <div ref={containerRef} className="flex-1 bg-white" />
+      <div
+        ref={containerRef}
+        className="flex-1 bg-white overflow-hidden"
+        style={{ minHeight: '500px', position: 'relative' }}
+      />
 
       {/* Hidden file input */}
       <input
